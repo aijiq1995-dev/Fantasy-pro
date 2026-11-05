@@ -1,0 +1,12 @@
+{
+  "name": "fantasy-pro",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "فانتازي برو — تطبيق تحليل الفانتازي مع بيانات حقيقية وتسجيل دخول Firebase",
+  "scripts": {
+    "dev": "node dev/server.mjs",
+    "demo": "node dev/server.mjs --mock"
+  },
+  "engines": { "node": ">=18" }
+}

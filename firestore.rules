@@ -1,0 +1,52 @@
+rules_version = '2';
+// قواعد حماية قاعدة البيانات — الصقها في Firebase Console ← Firestore ← Rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ملف المستخدم: صاحبه بس يقرا ويكتب، وما يگدر يغيّر حالة الحظر بنفسه. المشرف يقرا الكل ويحظر.
+    match /users/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      allow create: if signedIn() && request.auth.uid == uid && !('banned' in request.resource.data);
+      allow update: if (signedIn() && request.auth.uid == uid && !changed().hasAny(['banned'])) || isAdmin();
+      allow delete: if false;
+    }
+
+    // دوريات التطبيق الخاصة (الرمز = مفتاح الدعوة)
+    match /leagues/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members.keys().hasOnly([request.auth.uid]);
+      // المالك/المشرف يعدّل كل شي. غيرهم يضيف أو يحذف نفسه بس من الأعضاء.
+      allow update: if signedIn() && (
+                      resource.data.owner == request.auth.uid || isAdmin() ||
+                      (changed().hasOnly(['members']) &&
+                       request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])));
+      allow delete: if signedIn() && (resource.data.owner == request.auth.uid || isAdmin());
+    }
+
+    // قائمة المشرفين: تُضاف يدوياً من الكونسول فقط
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // إعدادات عامة (رسالة الإدارة، ملاحظات اللاعبين، قواعد النقاط، الموسم)
+    match /config/{name} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // سجل الأخطاء: أي مستخدم يسجّل، المشرف بس يقرا
+    match /logs/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.msg is string && request.resource.data.msg.size() <= 500;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

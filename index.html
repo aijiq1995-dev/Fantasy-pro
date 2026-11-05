@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0D14">
+<meta name="description" content="فانتازي برو — منصة فانتازي احترافية ببيانات حقيقية">
+<title>فانتازي برو</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<section id="splash" class="splash"><div class="logo-ic">F</div><div id="splashMsg" class="mut" style="text-align:center;padding:0 20px">…</div></section>
+<section id="auth" class="auth-wrap hidden"></section>
+<section id="link" class="auth-wrap hidden"></section>
+<div id="app" class="hidden">
+  <aside class="side" id="side"></aside>
+  <div class="app">
+    <header class="topbar">
+      <div class="av" id="tbAv">A</div>
+      <div style="flex:1;min-width:0"><h1 id="tbTitle">—</h1><small><span id="tbSubT"></span><span class="fresh" id="fresh"><i></i><span></span></span></small></div>
+      <button class="sbar" onclick="go('search')" aria-label="search"><svg class="i"><use href="#i-search"/></svg><span class="t" data-ph></span><kbd>/</kbd></button>
+      <button class="icon-btn" onclick="go('notifs')" aria-label="notifications"><svg class="i"><use href="#i-bell"/></svg><span class="dot hidden" id="bellDot"></span></button>
+    </header>
+    <main id="view"></main>
+  </div>
+  <nav class="bnav" id="bnav"></nav>
+</div>
+<div id="sheetRoot"></div>
+<div id="toast"></div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
