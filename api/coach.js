@@ -33,7 +33,7 @@ async function readBody(req) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
   const key = process.env.ANTHROPIC_API_KEY, gkey = process.env.GEMINI_API_KEY;
-  if (!key && !gkey) return send(res, 503, { error: 'no_key' });
+  if (!key && !gkey) return send(res, 503, { error: 'no_key', env: process.env.VERCEL_ENV || 'local', commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) });
   // يقبل الطلبات من نفس موقع التطبيق فقط (حتى ما يستخدم أحد مفتاحك من برا)
   const host = req.headers['x-forwarded-host'] || req.headers.host || '';
   const origin = req.headers.origin || req.headers.referer || '';

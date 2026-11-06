@@ -111,7 +111,7 @@ export async function askAI(question, { onText, onTool, signal, history = [] } =
   const res = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await AU.getIdToken()) }, signal, body: JSON.stringify({ question, lang: lang(), context: `${contextText()}\n\nRelevant data (JSON):\n${pre}`, history: history.slice(-6) }) });
   const d = await res.json().catch(() => ({}));
   if (res.ok && d.text) { onText && onText(d.text); return { text: d.text, source: 'ai' }; }
-  throw Object.assign(new Error(d.error || 'ai_unavailable'), { code: res.status === 429 ? 'rate_limited' : d.error === 'no_key' ? 'no_key' : 'unavailable' });
+  throw Object.assign(new Error(d.error || 'ai_unavailable'), { code: res.status === 429 ? 'rate_limited' : d.error === 'no_key' ? 'no_key' : 'unavailable', diag: `${location.host} · HTTP ${res.status} · ${d.env || '?'} · ${d.commit || '?'} · ${String(d.error || '').slice(0, 120)}` });
 }
 async function prefetch(question) {
   const r = parseQuery(question) || {}, T = Object.fromEntries(TOOLS.map((t) => [t.name, t.execute])), out = { my_team: T.my_team({}) };
