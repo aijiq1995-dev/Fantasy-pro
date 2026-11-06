@@ -26,10 +26,10 @@ async function get(path, params = {}) {
 
 export default async function handler(req, res) {
   const u = new URL(req.url, 'http://x');
-  const gw = parseInt(u.searchParams.get('gw') || '0', 10), src = u.searchParams.get('src') === 'league' ? 'league' : 'top';
+  const gw = parseInt(u.searchParams.get('gw') || '0', 10), src = ['league', 'h2h'].includes(u.searchParams.get('src')) ? u.searchParams.get('src') : 'top';
   const id = parseInt(u.searchParams.get('id') || '0', 10), fin = u.searchParams.get('fin') === '1';
   if (!(gw >= 1 && gw <= 38)) return send(res, 400, { error: 'bad gw' });
-  if (src === 'league' && !(id > 0 && id < 1e10)) return send(res, 400, { error: 'bad league' });
+  if (src !== 'top' && !(id > 0 && id < 1e10)) return send(res, 400, { error: 'bad league' });
   const key = `${src}:${id}:${gw}`, ttl = fin ? 86400 : 600;
   const hit = memo.get(key); if (hit && Date.now() - hit.t < ttl * 1000) return send(res, 200, hit.d, ttl);
 
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     if (src === 'top') {
       for (const page of [1, 2]) { const d = await get('leagues-classic/314/standings/', page > 1 ? { page_standings: page } : {}); entries.push(...(d.standings?.results || []).map((r) => r.entry)); label = 'top100'; }
     } else {
-      const d = await get(`leagues-classic/${id}/standings/`); entries = (d.standings?.results || []).map((r) => r.entry).slice(0, 50); label = d.league?.name || '';
+      const d = await get(`${src === 'h2h' ? 'leagues-h2h' : 'leagues-classic'}/${id}/standings/`); entries = (d.standings?.results || []).map((r) => r.entry).slice(0, 50); label = d.league?.name || '';
     }
     entries = [...new Set(entries)].slice(0, 100);
     const cap = {}, vice = {}, tc = {}; let n = 0, chips = {};
