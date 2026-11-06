@@ -4,11 +4,13 @@ import { t, tt } from '../i18n.js';
 import { esc, I, toast, fmt, r1, LS, crest, fmtTime } from '../ui.js';
 import { xp, xpN, validXI, formation, bestXI, bestXIFormation, projected, hits, avail, fixturesFor, analyze, avgFdr } from '../engine.js';
 import { pShirt } from './common.js';
-import { pricePredict } from '../predict.js';
+import { pricePredict, liveRankEstimate } from '../predict.js';
+import { liveCalc, rankImpact } from '../live-engine.js';
+import * as FPL from '../fpl.js';
 import { basePlan } from '../app.js';
 
 const FORMS = ['3-4-3', '3-5-2', '4-4-2', '4-3-3', '4-5-1', '5-3-2', '5-4-1'];
-let swapFrom = null, tab = 'pitch', chipPrev = '';
+let swapFrom = null, tab = null, chipPrev = '', liveLoading = false;
 const LABELS = () => [['fx', tt('المباراة', 'Fixture'), 'i-cal'], ['next', tt('القادمة', 'Next 3'), 'i-season'], ['xp', tt('المتوقع', 'xP'), 'i-target'], ['pts', tt('النقاط', 'Points'), 'i-star'], ['price', t('price'), 'i-coin']];
 const mode = () => LS.get('fp_label', 'fx');
 
@@ -85,16 +87,62 @@ function insight(P) {
    <div class="sec"><h2>${I('i-alert')}${tt('مخاطر بفريقك', 'Squad risks')}</h2></div>
    ${risks.length ? `<div class="list">${risks.map(([p, r]) => `<div class="row tap" onclick="openPlayer(${p.id})"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)}</b><span style="white-space:normal">${esc(p.news || tShort(p.team))}</span></div><div class="flex" style="gap:4px">${r.map(([c, l]) => `<span class="tag ${c}">${l}</span>`).join('')}</div></div>`).join('')}</div>` : `<div class="card flex" style="gap:10px">${I('i-check', 'i', 'color:var(--acc)')}<span>${tt('ما في مخاطر واضحة بفريقك هالجولة', 'No obvious risks this GW')}</span></div>`}`;
 }
+/* ---------- نقاط الجولة الحالية لحظياً ---------- */
+const curEv = () => ST.G.events.find((e) => e.id === ST.G.cur);
+export const gwRunning = () => { const e = curEv(); return !!e && new Date(e.deadline) < new Date() && !e.fin && !e.checked; };
+const hasCurPicks = () => ST.E.picks && ST.E.gw === ST.G.cur;
+function ensureLive() {
+  const gw = ST.G.cur; if (liveLoading || (ST.live && ST.liveRawGW === gw)) return;
+  liveLoading = true;
+  FPL.loadLive(gw).then((l) => { ST.live = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); ST.liveRaw = l.elements; ST.liveRawGW = gw; }).catch(() => {}).finally(() => { liveLoading = false; if (ST.view === 'team') window.render(); });
+}
+function pState(p, gw) {
+  const f = (ST.G.fx[gw] || []).filter((x) => x.h === p.team || x.a === p.team);
+  if (!f.length) return ['blank', tt('ما يلعب', 'No match')];
+  if (f.some((x) => x.started && !x.fin)) return ['live', `${Math.max(...f.filter((x) => x.started && !x.fin).map((x) => x.min || 0))}′`];
+  if (f.every((x) => x.fin)) return ['done', tt('انتهت', 'FT')];
+  const k = f.find((x) => !x.started)?.ko; return ['soon', k ? new Date(k).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : tt('لاحقاً', 'Later')];
+}
+function liveCard(r, i) {
+  const p = PM(r.id); if (!p) return '';
+  const [st, stl] = pState(p, ST.G.cur), shown = r.pts * Math.max(1, r.m);
+  const bg = r.m === 0 && !r.subIn ? '#CBD5E1' : st === 'soon' ? '#E2E8F0' : shown >= 10 ? '#34D399' : shown >= 5 ? '#A7F3D0' : shown >= 2 ? '#F1F5F9' : shown > 0 ? '#FED7AA' : '#FECACA';
+  return `<div class="pl ${r.cap ? 'capt' : ''} ${r.subOut ? 'dim' : ''}" style="--d:${i * 35}ms" onclick="openPlayer(${p.id})" role="button">${r.cap ? `<span class="cb">${r.m === 3 ? '3×' : 'C'}</span>` : r.vc ? `<span class="cb v">${r.m > 1 ? 'C' : 'V'}</span>` : ''}${r.subIn ? `<span class="rk" style="background:var(--acc);color:var(--on-acc)">⇅</span>` : r.subOut ? `<span class="rk r2">⇅</span>` : ''}<div class="sh">${pShirt(p)}</div><div class="nm">${esc(p.name)}</div><div class="lb lpts" style="background:${bg}">${st === 'soon' && !shown ? '—' : shown}${r.bonus ? `<sup>+${r.bonus}</sup>` : ''}</div><div class="pst ${st}">${st === 'live' ? '<i></i>' : ''}${stl}</div></div>`;
+}
+function liveView() {
+  const G = ST.G, gw = G.cur; ensureLive();
+  if (!ST.live || ST.liveRawGW !== gw) return `<div class="skel" style="height:420px;margin-top:12px"></div>`;
+  const c = liveCalc(ST.E.picks, gw); if (!c) return `<div class="empty">${t('noData')}</div>`;
+  const on = c.rows.filter((r) => (r.m > 0 && !r.subOut) || r.subIn), off = c.rows.filter((r) => !on.includes(r));
+  const rows = ['GK', 'DEF', 'MID', 'FWD'].map((pos) => on.filter((r) => PM(r.id)?.pos === pos));
+  const ev = curEv(), R = rankImpact(c), lr = gwRunning() ? liveRankEstimate(c.total, R.safety) : null;
+  const playing = on.filter((r) => pState(PM(r.id), gw)[0] === 'live').length, left = on.filter((r) => pState(PM(r.id), gw)[0] === 'soon').length;
+  let k = 0;
+  return `<section class="team-hero live-hero" style="margin-top:12px">
+    <div class="flex between" style="align-items:flex-start"><div><div class="mut" style="font-size:12.5px">${t('gw')} ${gw} ${gwRunning() ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : `· ${tt('منتهية', 'Finished')}`}</div>
+      <div class="flex" style="gap:8px;align-items:baseline"><span class="big-num" style="font-size:46px;color:var(--acc)">${c.total}</span><span class="mut" style="font-size:13px">${tt('نقطة', 'pts')}${c.hit ? ` (−${c.hit})` : ''}</span></div>
+      ${ev?.avg ? `<div class="${c.total >= ev.avg ? 'up' : 'down'}" style="font-size:13px">${c.total >= ev.avg ? '+' : ''}${c.total - ev.avg} ${tt('عن المعدل', 'vs avg')} (${ev.avg})</div>` : ''}</div>
+     <div class="live-side"><div><small>${tt('يلعبون هسه', 'Playing')}</small><b>${playing}</b></div><div><small>${tt('باقي', 'To play')}</small><b>${left}</b></div>${lr ? `<div><small>${tt('ترتيب تقديري', 'Est. rank')}</small><b style="font-size:14px">${fmt(lr.rank)}</b></div>` : ''}</div></div>
+    ${c.subs.length || c.capOut || c.rows.some((r) => r.bonus) ? `<div class="flex wrap" style="gap:6px;margin-top:10px">${c.subs.map((x) => `<span class="tag lime">${I('i-swap')}${esc(PM(x.out)?.name)} ← ${esc(PM(x.in)?.name)}</span>`).join('')}${c.capOut ? `<span class="tag amber">${I('i-crown')}${tt('النائب صار كابتن', 'Vice captain doubled')}</span>` : ''}${c.rows.some((r) => r.bonus && r.m) ? `<span class="tag cyan">${I('i-star')}${tt('ضمنها بونص مؤقت', 'Incl. provisional bonus')} +${c.rows.reduce((a, r) => a + r.bonus * r.m, 0)}</span>` : ''}</div>` : ''}
+   </section>
+   <div class="pitch" style="margin-top:12px">${LINES}${rows.map((r) => `<div class="prow">${r.map((x) => liveCard(x, k++)).join('')}</div>`).join('')}</div>
+   <div class="benchbox"><div class="t"><span>${I('i-bench', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${t('bench')} <span class="mut" style="font-size:12px">· ${off.reduce((a, r) => a + r.pts, 0)} ${tt('نقطة', 'pts')}</span></span>${c.chip ? `<span class="tag violet">${{ bboost: tt('بنش بوست', 'Bench Boost'), '3xc': tt('كابتن ثلاثي', 'Triple C'), freehit: tt('فري هيت', 'Free Hit'), wildcard: tt('وايلد كارد', 'Wildcard') }[c.chip] || c.chip}</span>` : ''}</div>
+    <div class="prow">${off.map((r) => `<div class="slot">${liveCard(r, k++)}</div>`).join('')}</div></div>
+   <div class="flex wrap" style="gap:10px;font-size:11.5px;color:var(--mut);margin:10px 2px"><span class="pst live" style="position:static"><i></i>${tt('يلعب', 'Playing')}</span><span class="pst done" style="position:static">${tt('انتهت', 'FT')}</span><span class="pst soon" style="position:static">${tt('لسه', 'Upcoming')}</span><span><sup style="color:var(--info)">+2</sup> ${tt('بونص مؤقت', 'prov. bonus')}</span><span>⇅ ${tt('تبديل تلقائي', 'auto-sub')}</span></div>
+   <p class="mut" style="font-size:11.5px;text-align:center">${tt('النقاط من الفانتازي الرسمي وتتحدث كل 30 ثانية أثناء المباريات. البونص المؤقت والتبديلات محسوبة لحد ما تتأكد رسمياً.', 'Official points, refreshed every 30s during matches. Provisional bonus & auto-subs until confirmed.')}</p>`;
+}
 export function vTeam() {
   const P = ST.plan; if (!P) return `<div class="empty">${I('i-pitch', 'i', 'width:44px;height:44px')}<b>${tt('فريقك ما لعب أي جولة بعد', 'Your team has not played yet')}</b></div>`;
+  if (tab == null) tab = gwRunning() && hasCurPicks() ? 'live' : 'pitch';
+  if (tab === 'live' && !hasCurPicks()) tab = 'pitch';
   const E = ST.E, pend = E.pending || [], preDeadline = E.gw && ST.G.next > E.gw;
   const info = preDeadline ? `<details class="tnote"><summary>${I('i-info', 'i', 'width:16px;height:16px;color:var(--info)')}<span>${tt(`تشكيلتك للجولة ${ST.G.next}`, `Your team for GW${ST.G.next}`)}${E.fhRevert ? tt(' · رجعت بعد الفري هيت', ' · reverted after FH') : ''}${P.transfers.length ? ` · ${P.transfers.length} ${tt('انتقال مسجّل', 'recorded')}` : ''}</span>${I('i-chev', 'chev')}</summary><p>${pend.length ? tt(`انتقالات من الفانتازي: ${pend.map((x) => `${PM(x.element_out)?.name} ← ${PM(x.element_in)?.name}`).join('، ')}. `, '') : ''}${tt('الفانتازي يخفي الانتقالات الجديدة والكابتن لحد الإغلاق. إذا سويت انتقال بتطبيق الفانتازي سجّله هنا مرة وحدة، وبعد الإغلاق كلشي يتحدث رسمياً وحده.', 'FPL hides new transfers & captain until the deadline — record your move here once; it syncs officially after.')}</p></details>` : '';
   const actions = `<div class="tactions"><button class="btn btn-p" onclick="bestLineup()">${I('i-sparkle')}${tt('أفضل تشكيلة', 'Best XI')}</button><button class="btn btn-g" onclick="go('market')">${I('i-swap')}${preDeadline ? tt('سجّل انتقال', 'Record transfer') : t('transfers')}</button><button class="icon-btn" onclick="syncTeam(this)" aria-label="refresh" title="${tt('تحديث من الفانتازي', 'Refresh from FPL')}">${I('i-refresh')}</button><button class="icon-btn" onclick="resetToOfficial()" aria-label="reset" title="${tt('رجّع الرسمي', 'Reset')}">${I('i-reset')}</button></div>`;
-  return `${hero(P)}${info}
-   <div class="tabs2" style="margin-top:12px"><button class="${tab === 'pitch' ? 'on' : ''}" onclick="teamTab('pitch')">${I('i-pitch', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${tt('الملعب', 'Pitch')}</button><button class="${tab === 'insight' ? 'on' : ''}" onclick="teamTab('insight')">${I('i-gauge', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${tt('تحليل الفريق', 'Insights')}</button></div>
-   ${tab === 'pitch' ? toolbar(P) + pitch(P) + actions : insight(P)}
+  return `${tab === 'live' ? '' : hero(P) + info}
+   <div class="tabs2" style="margin-top:12px">${hasCurPicks() ? `<button class="${tab === 'live' ? 'on' : ''}" onclick="teamTab('live')">${gwRunning() ? '<span class="dotlive"></span>' : I('i-star', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${tt(`الجولة ${ST.G.cur}`, `GW${ST.G.cur}`)}</button>` : ''}<button class="${tab === 'pitch' ? 'on' : ''}" onclick="teamTab('pitch')">${I('i-pitch', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${tt(`خطة الجولة ${ST.G.next}`, `GW${ST.G.next} plan`)}</button><button class="${tab === 'insight' ? 'on' : ''}" onclick="teamTab('insight')">${I('i-gauge', 'i', 'width:16px;height:16px;vertical-align:-3px')} ${tt('تحليل الفريق', 'Insights')}</button></div>
+   ${tab === 'live' ? liveView() : tab === 'pitch' ? toolbar(P) + pitch(P) + actions : insight(P)}
    ${P.transfers.length ? `<div class="sec"><h2>${I('i-swap')}${tt('انتقالات مسجّلة', 'Recorded transfers')}</h2></div><div class="list">${P.transfers.map((x, i) => `<div class="row"><div class="mini">${pShirt(PM(x.in))}</div><div class="info"><b><span class="down">${esc(PM(x.out).name)}</span> ← <span class="up">${esc(PM(x.in).name)}</span></b><span>${x.cost ? '−4' : tt('مجاني', 'free')} · ${tt('فرق المتوقع', 'xP diff')} ${r1(xpN(PM(x.in), ST.G.next, 3) - xpN(PM(x.out), ST.G.next, 3))}/3</span></div><button class="icon-btn" onclick="undoT(${i})" aria-label="undo">${I('i-x')}</button></div>`).join('')}</div>` : ''}
-   <p class="mut" style="font-size:11.5px;text-align:center;margin-top:12px">${tt('* = خارج الأرض. اضغط لاعب لتفاصيله، أو اختار "بدّل" من صفحته حتى تبدّله. التغييرات تنحفظ كخطة، والتنفيذ بالتطبيق الرسمي.', '* = away. Tap a player for details or swap. Changes save as a plan.')}</p>`;
+   ${tab === 'live' ? '' : `<p class="mut" style="font-size:11.5px;text-align:center;margin-top:12px">${tt('* = خارج الأرض. اضغط لاعب لتفاصيله، أو اختار "بدّل" من صفحته حتى تبدّله. التغييرات تنحفظ كخطة، والتنفيذ بالتطبيق الرسمي.', '* = away. Tap a player for details or swap. Changes save as a plan.')}</p>`}`;
 }
 function pitchTap(id) { if (swapFrom) { const a = swapFrom; swapFrom = null; if (a !== id) doSwap(a, id); return window.render(); } window.openPlayer(id); }
 function doSwap(a, b) {
