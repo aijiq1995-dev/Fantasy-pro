@@ -20,6 +20,7 @@ const ROUTES = [
   { re: /^leagues-h2h-matches\/league\/\d{1,10}\/$/, ttl: 60 },
   { re: /^event\/\d{1,2}\/live\/$/, ttl: 30 },
   { re: /^element-summary\/\d{1,5}\/$/, ttl: 900 },
+  { re: /^team\/set-piece-notes\/$/, ttl: 3600 },
 ];
 const memo = new Map();
 const stats = { hits: 0, misses: 0, errors: [], started: Date.now() };

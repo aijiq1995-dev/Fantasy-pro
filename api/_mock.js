@@ -30,6 +30,7 @@ function build(){
  const elements=PALL.map(([n,c,pos,price],i)=>{const q=Math.max(0.5,(price-3.8)/1.2);const parts=n.split(' ');const web=parts.length>1?parts.slice(1).join(' '):n;const st=r()<0.04?'i':r()<0.05?'d':'a';
   return {id:i+1,code:100000+i,web_name:web,first_name:parts.length>1?parts[0]:'',second_name:web,team:tid[c],element_type:ET[pos],now_cost:Math.round(price*10),form:(q*1.1+r()*2.2).toFixed(1),points_per_game:(q*0.9+1).toFixed(1),ep_next:st==='i'?'0.0':(q*0.95+0.8).toFixed(1),total_points:0,selected_by_percent:(Math.pow(q,2.3)*1.2*(0.4+r())).toFixed(1),status:st,chance_of_playing_next_round:st==='a'?null:st==='d'?50:0,news:st==='i'?'Hamstring injury - Unknown return date':st==='d'?'Knock - 50% chance of playing':'',goals_scored:0,assists:0,clean_sheets:0,minutes:0,starts:0,yellow_cards:0,red_cards:0,saves:0,bonus:0,bps:0,goals_conceded:0,cost_change_event:r()>0.9?1:r()<0.06?-1:0,cost_change_start:Math.round((r()-0.4)*4),transfers_in_event:Math.round(q*q*3000*r()),transfers_out_event:Math.round(9000*r()),expected_goals:'0',expected_assists:'0',expected_goal_involvements:'0',ict_index:'0',threat:'0',creativity:'0',_q:q,_pos:pos}});
  const byTeam={};elements.forEach(e=>(byTeam[e.team]=byTeam[e.team]||[]).push(e));
+ Object.values(byTeam).forEach(arr=>{const att=[...arr].filter(e=>e._pos!=='GK').sort((a,b)=>b.now_cost-a.now_cost);att.forEach(e=>{e.penalties_order=null;e.corners_and_indirect_freekicks_order=null;e.direct_freekicks_order=null});if(att[0])att[0].penalties_order=1;if(att[1])att[1].penalties_order=2;const mids=att.filter(e=>e._pos==='MID');if(mids[0])mids[0].corners_and_indirect_freekicks_order=1;if(mids[1])mids[1].corners_and_indirect_freekicks_order=2;if(mids[0])mids[0].direct_freekicks_order=1;if(att[2])att[2].direct_freekicks_order=2;});
  // per-GW histories
  const H={};
  const playGW=(e,f,g,partial)=>{const home=f.team_h===e.team;const opp=home?f.team_a:f.team_h;const rr=rng(e.id*100+g);const plays=e.status==='i'?false:rr()<(e._q>2?0.92:0.55);const minutes=plays?(rr()<0.8?(partial?Math.min(f.minutes,90):90):Math.floor(20+rr()*60)):0;
@@ -57,6 +58,7 @@ function entryHist(id){const r=rng(id);let tot=0,rank=3e6*r()+5e5;const cur=[];f
 function myPicks(g){const ids=D.myIds;return ids.map((id,i)=>({element:id,position:i+1,multiplier:i<11?(i===5?2:1):0,is_captain:i===5,is_vice_captain:i===9,element_type:D.elements[id-1].element_type}))}
 export function mockFPL(path,{event}={}){
  if(!D)build();
+ if(path==='team/set-piece-notes/')return {last_updated:new Date().toISOString(),teams:D.teams.slice(0,6).map(t=>({id:t.id,notes:[{info_message:'Penalty taker confirmed by manager in press conference.',external_link:false,source_link:''}]}))};
  if(path==='bootstrap-static/')return {total_players:11162042,teams:D.teams,events:D.events,elements:D.elements.map(({_q,_pos,...e})=>e),chips:D.chips};
  if(path==='fixtures/')return event?D.fixtures.filter(f=>f.event===event):D.fixtures;
  let m;

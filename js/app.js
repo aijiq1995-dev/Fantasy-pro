@@ -12,6 +12,7 @@ import { countAll } from './motion.js';
 import { ST, loadLocal, planKey } from './store.js';
 import { scanStatic, unreadCount } from './notify.js';
 import { registerSW, syncPush } from './push.js';
+import './sharecard.js';
 import { VIEWS, AFTER, startLivePolling } from './views/index.js';
 
 document.body.insertAdjacentHTML('afterbegin', SPRITE);
@@ -148,7 +149,7 @@ function loadPlan() {
 /* ---------- التنقل ---------- */
 const NAV = [
   ['g_main', [['home', 'i-home'], ['check', 'i-check'], ['team', 'i-pitch'], ['season', 'i-season'], ['live', 'i-live'], ['news', 'i-news'], ['search', 'i-sparkle']]],
-  ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['prices', 'i-coin'], ['lab', 'i-lab'], ['defcon', 'i-shield'], ['compare', 'i-compare']]],
+  ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['prices', 'i-coin'], ['lab', 'i-lab'], ['defcon', 'i-shield'], ['setpieces', 'i-target'], ['compare', 'i-compare']]],
   ['g_comp', [['leagues', 'i-trophy'], ['rivals', 'i-swords'], ['captains', 'i-crown'], ['chips', 'i-bolt'], ['stats', 'i-history'], ['achievements', 'i-medal']]],
   ['g_more', [['notifs', 'i-bell'], ['settings', 'i-settings']]],
 ];
