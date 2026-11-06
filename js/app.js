@@ -137,7 +137,7 @@ function loadPlan() { const s = LS.get(planKey()); return s && s.squad?.length =
 const NAV = [
   ['g_main', [['home', 'i-home'], ['team', 'i-pitch'], ['season', 'i-season'], ['live', 'i-live'], ['search', 'i-sparkle']]],
   ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['prices', 'i-coin'], ['lab', 'i-lab'], ['compare', 'i-compare']]],
-  ['g_comp', [['leagues', 'i-trophy'], ['chips', 'i-bolt'], ['stats', 'i-history'], ['achievements', 'i-medal']]],
+  ['g_comp', [['leagues', 'i-trophy'], ['captains', 'i-crown'], ['chips', 'i-bolt'], ['stats', 'i-history'], ['achievements', 'i-medal']]],
   ['g_more', [['notifs', 'i-bell'], ['settings', 'i-settings']]],
 ];
 const BNAV = [['home', 'i-home'], ['team', 'i-pitch'], ['season', 'i-season'], ['players', 'i-users'], ['more', 'i-grid']];
@@ -182,7 +182,7 @@ window.addEventListener('popstate', () => {
 });
 window.goBack = goBack;
 let lastCount = '';
-function countUp() { const first = lastCount !== ST.view; lastCount = ST.view; countAll(document.getElementById('view'), first); }
+function countUp() { const first = lastCount !== ST.view || window.__recount; window.__recount = false; lastCount = ST.view; countAll(document.getElementById('view'), first); }
 window.__canPull = () => ['home', 'team', 'live', 'season', 'leagues', 'prices'].includes(ST.view);
 export function render() {
   if (!ST.G) return;

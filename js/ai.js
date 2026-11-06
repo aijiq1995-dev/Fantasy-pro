@@ -21,7 +21,7 @@ const SORTW = [
   [['ملكيه', 'ملكية', 'owned', 'ownership'], 'own'], [['مفاجا', 'مفاجآت', 'differential', 'قليل الملكيه'], 'diff'], [['اهداف', 'هداف', 'goals'], 'gls'], [['xg', 'متوقعه اهداف'], 'xg'],
   [['صاعد', 'rising', 'شراء'], 'tin'], [['قيمه', 'value', 'نقطه لكل مليون'], 'value'], [['سهله', 'easy', 'مباريات سهله'], 'fix'],
 ];
-const VIEWW = [[['سعر', 'اسعار', 'صعود', 'نزول', 'price'], 'prices'], [['تشكيل', 'ملعب', 'فريقي', 'lineup', 'team'], 'team'], [['جوله', 'جولات', 'gameweek', 'gw', 'موسم'], 'season'], [['مباشر', 'live', 'نتائج'], 'live'], [['دوري', 'دوريات', 'ترتيب', 'league'], 'leagues'], [['ورق', 'اوراق', 'chip', 'وايلد', 'بنش', 'فري هيت', 'كابتن ثلاثي'], 'chips'], [['انتقال', 'سوق', 'transfer', 'market'], 'market'], [['مختبر', 'قرار', 'lab', 'hit', 'خصم'], 'lab'], [['تحليل', 'احصاء', 'stats', 'analytics'], 'stats'], [['مقارنه', 'compare'], 'compare'], [['اشعار', 'notif'], 'notifs'], [['اعداد', 'settings'], 'settings']];
+const VIEWW = [[['كبتنه', 'نسبه الكابتن', 'كابتنات', 'captaincy'], 'captains'], [['سعر', 'اسعار', 'صعود', 'نزول', 'price'], 'prices'], [['تشكيل', 'ملعب', 'فريقي', 'lineup', 'team'], 'team'], [['جوله', 'جولات', 'gameweek', 'gw', 'موسم'], 'season'], [['مباشر', 'live', 'نتائج'], 'live'], [['دوري', 'دوريات', 'ترتيب', 'league'], 'leagues'], [['ورق', 'اوراق', 'chip', 'وايلد', 'بنش', 'فري هيت', 'كابتن ثلاثي'], 'chips'], [['انتقال', 'سوق', 'transfer', 'market'], 'market'], [['مختبر', 'قرار', 'lab', 'hit', 'خصم'], 'lab'], [['تحليل', 'احصاء', 'stats', 'analytics'], 'stats'], [['مقارنه', 'compare'], 'compare'], [['اشعار', 'notif'], 'notifs'], [['اعداد', 'settings'], 'settings']];
 const has = (q, words) => words.some((w) => q.includes(norm(w)));
 
 let NC = null;

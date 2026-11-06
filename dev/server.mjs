@@ -11,11 +11,13 @@ const PORT = +process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const fpl = (await import('../api/fpl.js')).default;
 const coach = (await import('../api/coach.js')).default;
+const captains = (await import('../api/captains.js')).default;
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://local');
   if (u.pathname === '/api/fpl') return fpl(req, res);
   if (u.pathname === '/api/coach') return coach(req, res);
+  if (u.pathname === '/api/captains') return captains(req, res);
   let p = normalize(decodeURIComponent(u.pathname)).replace(/^([/\\])+/, '');
   if (p.startsWith('..') || p.startsWith('api') || p.startsWith('dev')) { res.statusCode = 404; return res.end(); }
   let file = join(ROOT, p || 'index.html');
