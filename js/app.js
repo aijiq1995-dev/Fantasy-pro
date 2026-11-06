@@ -109,10 +109,25 @@ async function onSignedIn(u) {
   loadAll();
 }
 let staleT = 0, autoRetryT = 0;
+/* وقت تحديث الفانتازي بعد الإغلاق يطول (لحد ساعة ونص تقريباً)، فما نعيد المحاولة كل دقيقة:
+   نحدّث بعد الإغلاق بساعة، وبعدها بساعة ونص — مثلاً إغلاق 9:30 ← تحديث 10:30 و 11:00 — وبعدها كل 10 دقايق لحد ما يرجع */
+let nextRetryAt = 0;
+function retryDelay() {
+  const now = Date.now(), evs = ST.G?.events || [];
+  const last = evs.map((e) => new Date(e.deadline).getTime()).filter((t) => t <= now).sort((a, b) => b - a)[0];
+  if (last && now - last < 4 * 36e5) {
+    const tgt = [last + 60 * 6e4, last + 90 * 6e4].find((t) => t > now + 5000);
+    if (tgt) return tgt - now;
+    return 10 * 6e4;
+  }
+  return 5 * 6e4; // عطل بوقت ثاني (مو إغلاق)
+}
+function scheduleRetry() { clearTimeout(staleT); const d = retryDelay(); nextRetryAt = Date.now() + d; staleT = setTimeout(() => loadAll(true), d); }
 function staleBar() {
   const f = document.getElementById('fresh'); if (!f) return;
   freshness();
-  f.onclick = FPL.staleState.on ? () => toast(tt('موقع الفانتازي يتحدّث الآن (وقت الإغلاق). نعرض آخر بيانات محفوظة، وراح نحدّث تلقائياً أول ما يرجع.', 'FPL is updating. Showing saved data; will refresh automatically.')) : null;
+  const at = () => new Date(nextRetryAt).toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { hour: 'numeric', minute: '2-digit' });
+  f.onclick = FPL.staleState.on ? () => toast(tt(`موقع الفانتازي يتحدّث بعد الإغلاق (ياخذ لحد ساعة ونص). نعرض آخر بيانات محفوظة، والتحديث الجاي الساعة ${at()}.`, `FPL is updating after the deadline. Showing saved data; next refresh at ${at()}.`)) : null;
 }
 export async function loadAll(fresh = false) {
   FPL.clearStale(); clearTimeout(staleT); clearTimeout(autoRetryT);
@@ -131,11 +146,11 @@ export async function loadAll(fresh = false) {
     const wasStale = !!document.getElementById('fresh')?.classList.contains('stale');
     buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); if (!FPL.staleState.on) toast(wasStale ? tt('رجع موقع الفانتازي — انحدّثت البيانات ✓', 'FPL is back — data updated ✓') : tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
     staleBar();
-    if (FPL.staleState.on) staleT = setTimeout(() => loadAll(true), 60e3); // نعيد المحاولة كل دقيقة لحد ما يرجع
+    if (FPL.staleState.on) { scheduleRetry(); staleBar(); }
   } catch (ex) {
     document.body.classList.remove('busy');
-    if (silent) { FPL.staleState.on = true; staleBar(); staleT = setTimeout(() => loadAll(true), 60e3); return; }
-    autoRetryT = setTimeout(() => loadAll(true), 30e3);
+    if (silent) { FPL.staleState.on = true; scheduleRetry(); staleBar(); return; }
+    autoRetryT = setTimeout(() => loadAll(true), Math.min(retryDelay(), 5 * 6e4));
     AU.logError(ST.user?.uid, ex.message, 'loadAll');
     splash(`${esc(ex.message)}<br><button class="btn btn-p btn-sm" style="margin-top:12px" onclick="loadAll(true)">${tt('إعادة المحاولة', 'Retry')}</button> <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="changeTeam()">${tt('تغيير رقم الفريق', 'Change Team ID')}</button>`);
   }
