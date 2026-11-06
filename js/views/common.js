@@ -110,3 +110,34 @@ window.openClub = (tid) => {
    <div class="list">${players.map((p) => `<div class="row tap" onclick="openPlayer(${p.id})"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)} ${mine.has(p.id) ? `<span class="tag lime">${tt('بفريقك', 'Yours')}</span>` : ''}</b><span><span class="pos ${p.pos}">${p.pos}</span>${p.price.toFixed(1)}م · ${p.own}%</span></div><div class="col">${p.total}<small>${tt('نقطة', 'pts')}</small></div></div>`).join('')}</div>
    <button class="btn btn-g btn-b" style="margin-top:12px" onclick="closeSheet();goClub(${tid})">${tt('كل لاعبي النادي', 'All club players')}</button>`);
 };
+
+/* ---------- تفاصيل اللاعب بجولة معيّنة (مباراته فقط) ---------- */
+const EXPL = () => ({ minutes: tt('الدقائق', 'Minutes'), goals_scored: tt('أهداف', 'Goals'), assists: tt('صناعة', 'Assists'), clean_sheets: tt('شباك نظيفة', 'Clean sheet'), goals_conceded: tt('أهداف مستقبلة', 'Goals conceded'), own_goals: tt('هدف عكسي', 'Own goal'), penalties_saved: tt('صد جزاء', 'Penalty saved'), penalties_missed: tt('إضاعة جزاء', 'Penalty missed'), yellow_cards: tt('بطاقة صفراء', 'Yellow card'), red_cards: tt('بطاقة حمراء', 'Red card'), saves: tt('تصديات', 'Saves'), bonus: tt('بونص', 'Bonus'), defensive_contribution: tt('مساهمات دفاعية', 'Defensive contribution') });
+window.playerGW = async (id, gw, mult = 1) => {
+  const p = PM(id); if (!p) return;
+  openSheet(`${sheetHead(`<div style="width:46px;height:46px">${pShirt(p)}</div>`, esc(p.name), `${t('gw')} ${gw} · ${tName(p.team)}`)}<div id="pgw" class="aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>`);
+  let el;
+  try {
+    if (ST.liveRaw && ST.liveRawGW === gw) el = ST.liveRaw.find((e) => e.id === id);
+    else { const l = await FPL.loadLive(gw); el = l.elements.find((e) => e.id === id); }
+  } catch (e) { const b = document.getElementById('pgw'); if (b) b.outerHTML = `<p class="mut">${esc(e.message)}</p>`; return; }
+  const box = document.getElementById('pgw'); if (!box) return;
+  const s = el?.stats || {}, fxs = (ST.G.fx[gw] || []).filter((f) => f.h === p.team || f.a === p.team);
+  const { provisionalBonus } = await import('../live-engine.js');
+  const pb = s.bonus ? 0 : (provisionalBonus(gw)[id] || 0);
+  const total = (s.total_points || 0) + pb, shown = total * Math.max(1, mult);
+  const match = (f) => { const home = f.h === p.team, opp = home ? f.a : f.h; const st = f.fin ? tt('انتهت', 'FT') : f.started ? `<span class="livebadge">${f.min || ''}′</span>` : (f.ko ? new Date(f.ko).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
+    return `<div class="pgw-match" onclick="closeSheet();setTimeout(()=>openMatchC&&openMatchC(${f.id},${gw}),200)"><div class="flex" style="gap:6px">${crest(tShort(f.h), 26)}<b>${tShort(f.h)}</b></div><div style="text-align:center">${f.started ? `<b class="score" style="font-size:20px">${f.hs ?? 0} – ${f.as ?? 0}</b>` : '<b class="mut">VS</b>'}<div style="font-size:11.5px" class="mut">${st}</div></div><div class="flex" style="gap:6px;justify-content:flex-end"><b>${tShort(f.a)}</b>${crest(tShort(f.a), 26)}</div></div>`; };
+  const rows = []; (el?.explain || []).forEach((x) => (x.stats || []).forEach((r) => { if (r.identifier === 'bps') return; const ex = rows.find((y) => y.k === r.identifier); if (ex) { ex.v += r.value; ex.p += r.points; } else rows.push({ k: r.identifier, v: r.value, p: r.points }); }));
+  if (!rows.length && (s.minutes || 0) > 0) Object.keys(EXPL()).forEach((k) => { if (k !== 'bonus' && +s[k]) rows.push({ k, v: s[k], p: null }); });
+  if (!rows.some((r) => r.k === 'bonus') && s.bonus) rows.push({ k: 'bonus', v: s.bonus, p: s.bonus });
+  if (pb) rows.push({ k: 'bonus', v: pb, p: pb, prov: true });
+  const X = EXPL();
+  const extra = [['xG', s.expected_goals], ['xA', s.expected_assists], ['BPS', s.bps], ['ICT', s.ict_index], [tt('تأثير', 'Influence'), s.influence], [tt('صناعة الفرص', 'Creativity'), s.creativity], [tt('تهديد', 'Threat'), s.threat], [tt('دفاعية', 'Def. contrib.'), s.defensive_contribution], [tt('استرجاع', 'Recoveries'), s.recoveries], [tt('تدخلات', 'Tackles'), s.tackles]].filter(([, v]) => v != null && v !== '' && +v !== 0);
+  box.outerHTML = `${fxs.length ? fxs.map(match).join('') : `<div class="note">${I('i-info', 'i', 'color:var(--info)')}<span>${tt('فريقه ما عنده مباراة بهالجولة', 'No fixture this gameweek')}</span></div>`}
+   <div class="pgw-total"><div><span class="mut" style="font-size:12.5px">${tt('نقاطه بالجولة', 'GW points')}</span><b class="big-num count" data-v="${shown}">${shown}</b>${mult > 1 ? `<span class="tag" style="background:var(--gold);color:#1C1404">×${mult} ${tt('كابتن', 'captain')}</span>` : ''}</div><div class="kv" style="margin:0;flex:1"><div><b>${s.minutes || 0}′</b><span>${tt('دقائق', 'Minutes')}</span></div><div><b>${s.goals_scored || 0}</b><span>${tt('أهداف', 'Goals')}</span></div><div><b>${s.assists || 0}</b><span>${tt('صناعة', 'Assists')}</span></div></div></div>
+   ${rows.length ? `<div class="sec" style="margin-top:12px"><h2 style="font-size:14px">${I('i-list', 'i', 'width:16px;height:16px')}${tt('تفصيل النقاط', 'Points breakdown')}</h2></div><div class="list">${rows.map((r) => `<div class="row"><div class="info"><b style="font-size:13.5px">${X[r.k] || r.k}${r.prov ? ` <span class="tag cyan">${tt('مؤقت', 'provisional')}</span>` : ''}</b><span>${r.k === 'minutes' ? r.v + '′' : '×' + r.v}</span></div><div class="col ${r.p > 0 ? 'up' : r.p < 0 ? 'down' : ''}" style="font-size:16px">${r.p == null ? '' : (r.p > 0 ? '+' : '') + r.p}</div></div>`).join('')}<div class="row" style="background:var(--s2)"><div class="info"><b>${tt('المجموع', 'Total')}</b></div><div class="col" style="font-size:17px;color:var(--acc)">${total}</div></div></div>` : `<p class="mut" style="margin-top:10px">${tt('ما لعب أو مباراته ما بدت بعد', 'Has not played yet')}</p>`}
+   ${extra.length ? `<div class="sec"><h2 style="font-size:14px">${I('i-activity', 'i', 'width:16px;height:16px')}${tt('أرقامه بالمباراة', 'Match stats')}</h2></div><div class="pgw-grid">${extra.map(([l, v]) => `<div><b class="num">${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
+   <button class="btn btn-g btn-b" style="margin-top:14px" onclick="closeSheet();setTimeout(()=>openPlayer(${id}),200)">${I('i-user', 'i', 'width:16px;height:16px')}${tt('صفحة اللاعب الكاملة', 'Full player page')}</button>`;
+  import('../motion.js').then((m) => m.countAll(document.getElementById('sheetRoot'), true)).catch(() => {});
+};

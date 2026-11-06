@@ -32,7 +32,7 @@ function pastGW(g) {
 function teamBlock(g) {
   const c = cache[g];
   if (!c) return `<div class="card mut">${t('loading')}</div>`;
-  if (c.rows) return `<div class="list">${c.rows.map((r) => { const p = PM(r.id); return p ? `<div class="row tap" onclick="openPlayer(${p.id})" style="${r.bench ? 'opacity:.6' : ''}"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)} ${r.cap ? `<span class="tag" style="background:var(--gold);color:#1C1404">C</span>` : r.vc ? '<span class="tag">V</span>' : ''}${r.bench ? ` <span class="tag">${t('bench')}</span>` : ''}</b><span>${r.line || ''}</span></div><div class="col" style="font-size:16px">${r.pts ?? '—'}<small>${tt('نقطة', 'pts')}</small></div></div>` : ''; }).join('')}</div>${c.note ? `<p class="mut" style="font-size:12px;margin:8px 2px">${c.note}</p>` : ''}`;
+  if (c.rows) return `<div class="list">${c.rows.map((r) => { const p = PM(r.id); return p ? `<div class="row tap" onclick="playerGW(${p.id},${g},${r.cap ? 2 : 1})" style="${r.bench ? 'opacity:.6' : ''}"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)} ${r.cap ? `<span class="tag" style="background:var(--gold);color:#1C1404">C</span>` : r.vc ? '<span class="tag">V</span>' : ''}${r.bench ? ` <span class="tag">${t('bench')}</span>` : ''}</b><span>${r.line || ''}</span></div><div class="col" style="font-size:16px">${r.pts ?? '—'}<small>${tt('نقطة', 'pts')}</small></div></div>` : ''; }).join('')}</div>${c.note ? `<p class="mut" style="font-size:12px;margin:8px 2px">${c.note}</p>` : ''}`;
   return `<div class="card mut">${esc(c.err || t('noData'))}</div>`;
 }
 async function loadTeam(g) {
