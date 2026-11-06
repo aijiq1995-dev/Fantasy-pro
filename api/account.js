@@ -6,8 +6,20 @@
 ========================================================= */
 import crypto from 'node:crypto';
 
-const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-const TOK = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+// يقبل أي بادئة يختارها Vercel (KV_ / STORAGE_ / UPSTASH_REDIS_ ...)
+function findEnv() {
+  const E = process.env;
+  if (E.KV_REST_API_URL && E.KV_REST_API_TOKEN) return [E.KV_REST_API_URL, E.KV_REST_API_TOKEN];
+  if (E.UPSTASH_REDIS_REST_URL && E.UPSTASH_REDIS_REST_TOKEN) return [E.UPSTASH_REDIS_REST_URL, E.UPSTASH_REDIS_REST_TOKEN];
+  for (const k of Object.keys(E)) {
+    const m = k.match(/^(.*)_REST_API_URL$/) || k.match(/^(.*)_REDIS_REST_URL$/);
+    if (!m) continue;
+    const t = E[m[1] + '_REST_API_TOKEN'] || E[m[1] + '_REDIS_REST_TOKEN'];
+    if (t && /^https:/.test(E[k])) return [E[k], t];
+  }
+  return ['', ''];
+}
+const [URL_, TOK] = findEnv();
 const SECRET = process.env.ACCOUNT_SECRET || TOK;
 const enabled = !!(URL_ && TOK);
 const TOKEN_DAYS = 365;
