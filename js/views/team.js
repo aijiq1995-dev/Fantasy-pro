@@ -186,5 +186,5 @@ Object.assign(window, {
   resetPlan: () => { ST.plan = basePlan(); savePlan(); window.render(); toast(tt('رجعنا للفريق الرسمي', 'Reverted to official team')); },
   undoT: (i) => { const P = ST.plan, x = P.transfers[i]; const rep = (a) => a.map((y) => (y === x.in ? x.out : y)); P.squad = rep(P.squad); P.xi = rep(P.xi); P.bench = rep(P.bench); if (P.cap === x.in) P.cap = x.out; if (P.vc === x.in) P.vc = x.out; P.bank = r1(P.bank - PM(x.out).price + PM(x.in).price); if (!x.cost && P.chip !== 'wildcard' && P.chip !== 'freehit') P.ft++; P.transfers.splice(i, 1); savePlan(); window.render(); },
   syncTeam: async (b) => { if (b) b.classList.add('spin'); await window.loadAll(true); window.go('team', { back: true }); },
-  resetToOfficial: () => { try { Object.keys(localStorage).filter((k) => k.startsWith('fp_plan_')).forEach((k) => localStorage.removeItem(k)); } catch {} window.loadAll(true).then(() => window.go('team', { back: true })); },
+  resetToOfficial: () => { if (ST.profile) ST.profile.plan = null; window.__saveProfile?.({ plan: null }); try { Object.keys(localStorage).filter((k) => k.startsWith('fp_plan_')).forEach((k) => localStorage.removeItem(k)); } catch {} window.loadAll(true).then(() => window.go('team', { back: true })); },
 });

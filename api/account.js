@@ -46,7 +46,7 @@ function sign(uid) {
   const p = b64(JSON.stringify({ uid, exp: Date.now() + TOKEN_DAYS * 864e5 }));
   return p + '.' + crypto.createHmac('sha256', SECRET).update(p).digest('base64url');
 }
-function verify(tok) {
+export function verify(tok) {
   const [p, s] = String(tok || '').split('.');
   if (!p || !s) return null;
   const exp = crypto.createHmac('sha256', SECRET).update(p).digest('base64url');

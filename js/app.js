@@ -11,6 +11,7 @@ import { $, $$, esc, I, toast, openSheet, closeSheet, LS, fmt } from './ui.js';
 import { countAll } from './motion.js';
 import { ST, loadLocal, planKey } from './store.js';
 import { scanStatic, unreadCount } from './notify.js';
+import { registerSW, syncPush } from './push.js';
 import { VIEWS, AFTER, startLivePolling } from './views/index.js';
 
 document.body.insertAdjacentHTML('afterbegin', SPRITE);
@@ -117,6 +118,7 @@ export async function loadAll(fresh = false) {
     const [bc, ov, sc] = await Promise.all([AU.getConfig('broadcast'), AU.getConfig('overrides', {}), AU.getConfig('scoring')]);
     ST.broadcast = bc; ST.overrides = ov || {}; ST.scoring = sc;
     AU.touchProfile(ST.user.uid, { teamName: E.entry.name });
+    syncPush();
     scanStatic();
     buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); toast(tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
   } catch (ex) {
@@ -137,7 +139,11 @@ export function basePlan() {
     cap: (okP.find((p) => p.is_captain) || okP[0]).element, vc: (okP.find((p) => p.is_vice_captain) || okP[1]).element,
     bank: Math.round(bank * 10) / 10, ft, transfers: [], chip: '' };
 }
-function loadPlan() { const s = LS.get(planKey()); return s && s.squad?.length === 15 && s.squad.every((id) => ST.G.PM[id]) ? s : basePlan(); }
+function loadPlan() {
+  const k = planKey(), loc = LS.get(k), rp = ST.profile?.plan, rem = rp && rp.key === k ? rp.data : null;
+  const s = rem && (!loc || (rem.at || 0) > (loc.at || 0)) ? rem : loc;
+  return s && s.squad?.length === 15 && s.squad.every((id) => ST.G.PM[id]) ? s : basePlan();
+}
 
 /* ---------- التنقل ---------- */
 const NAV = [
@@ -208,6 +214,8 @@ Object.assign(window, { go, render, closeSheet, doLogout, toggleLang, loadAll, c
 /* ---------- الإقلاع ---------- */
 (async function boot() {
   splash();
+  registerSW();
+  window.__saveProfile = (data) => ST.user && AU.saveProfile(ST.user.uid, data).catch(() => {});
   if (AU.firebaseOn) {
     try { let first = true; await AU.watchAuth((u, err) => { if (err) return renderAuth(AU.authError(err)); if (u) { if (!ST.user || ST.user.uid !== u.uid) onSignedIn(u); } else if (first || ST.user) { ST.user = null; renderAuth(); } first = false; }); }
     catch { splash(tt('تعذّر تحميل Firebase — تأكد من الإنترنت وإعدادات js/config.js', 'Could not load Firebase')); }

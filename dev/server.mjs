@@ -13,6 +13,7 @@ const fpl = (await import('../api/fpl.js')).default;
 const coach = (await import('../api/coach.js')).default;
 const captains = (await import('../api/captains.js')).default;
 const account = (await import('../api/account.js')).default;
+const pushApi = (await import('../api/push.js')).default;
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://local');
@@ -20,6 +21,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/api/coach') return coach(req, res);
   if (u.pathname === '/api/captains') return captains(req, res);
   if (u.pathname === '/api/account') return account(req, res);
+  if (u.pathname === '/api/push') return pushApi(req, res);
   let p = normalize(decodeURIComponent(u.pathname)).replace(/^([/\\])+/, '');
   if (p.startsWith('..') || p.startsWith('api') || p.startsWith('dev')) { res.statusCode = 404; return res.end(); }
   let file = join(ROOT, p || 'index.html');

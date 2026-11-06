@@ -17,4 +17,9 @@ export function loadLocal() {
 export const saveNotifs = () => LS.set(k('notifs'), ST.notifs.slice(0, 120));
 export const saveWatchLocal = () => LS.set(k('watch'), [...ST.watch]);
 export const planKey = () => `fp_plan_${ST.profile.teamId}_${ST.G.next}_${ST.E.gw}_${(ST.E.pending || []).map((t) => t.element_in).join('-')}`;
-export const savePlan = () => ST.plan && LS.set(planKey(), ST.plan);
+let planT = 0;
+/** يحفظ الخطة محلياً + بحسابك (حتى تلگاها بأي جهاز) */
+export const savePlan = () => {
+  if (!ST.plan) return; ST.plan.at = Date.now(); const key = planKey(); LS.set(key, ST.plan);
+  clearTimeout(planT); planT = setTimeout(() => { try { window.__saveProfile?.({ plan: { key, data: ST.plan } }); } catch {} }, 1200);
+};

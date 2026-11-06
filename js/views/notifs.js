@@ -5,6 +5,7 @@ import { esc, I, toast, timeAgo, fmtTime, LS, CLUB_AR, crest } from '../ui.js';
 import * as AU from '../auth.js';
 import * as FPL from '../fpl.js';
 import { updateBadge, loadAll } from '../app.js';
+import * as PU from '../push.js';
 
 let filter = 'all';
 const TYPES = [['all', tt('الكل', 'All')], ['deadline', tt('الإغلاق', 'Deadline')], ['injury', tt('الإصابات', 'Injuries')], ['price', tt('الأسعار', 'Prices')], ['goals', tt('الأهداف', 'Goals')], ['league', tt('الدوريات', 'Leagues')]];
@@ -33,14 +34,15 @@ export function vSettings() {
   const U = ST.user, P = ST.profile, prov = AU.linkedProviders();
   const sw = (on, fn) => `<button class="switch ${on ? 'on' : ''}" onclick="${fn}" aria-pressed="${on}"><i></i></button>`;
   const lu = ST.G.fetchedAt || Date.now();
-  return `<div class="card row"><div class="tm" style="width:52px;height:52px;border-radius:16px;background:var(--g1);color:#052E1F;display:grid;place-items:center;font-weight:700;font-size:22px">${esc((U.name || '?').trim()[0])}</div><div class="info"><b>${esc(U.name || '')}</b><span>${esc(U.email || U.username || '')} · ${AU.firebaseOn ? tt('حساب سحابي', 'Cloud account') : tt('وضع تجريبي محلي (بدون Firebase)', 'Local demo mode (no Firebase)')}</span></div>${ST.admin ? '<span class="tag violet">Admin</span>' : ''}</div>
+  return `<div class="card row"><div class="tm" style="width:52px;height:52px;border-radius:16px;background:var(--g1);color:#052E1F;display:grid;place-items:center;font-weight:700;font-size:22px">${esc((U.name || '?').trim()[0])}</div><div class="info"><b>${esc(U.name || '')}</b><span>${esc(U.email || U.username || '')} · ${AU.firebaseOn || AU.srvToken() ? tt('حساب سحابي — يشتغل من أي جهاز', 'Cloud account') : tt('وضع تجريبي محلي (بدون Firebase)', 'Local demo mode (no Firebase)')}</span></div>${ST.admin ? '<span class="tag violet">Admin</span>' : ''}</div>
    <div class="sec"><h2>${I('i-pitch')}${tt('فريق الفانتازي', 'FPL team')}</h2></div>
    <div class="card"><div class="set-row"><span>${tt('اسم الفريق', 'Team')}</span><b>${esc(ST.E.entry.name)}</b></div><div class="set-row"><span>Team ID</span><b class="num">${P.teamId}</b></div><div class="set-row"><span>${tt('النادي المفضل', 'Favourite club')}</span><select class="sel" onchange="setFav(this.value)"><option value="">—</option>${Object.values(ST.G.teams).map((tm) => `<option value="${tm.id}" ${String(P.fav) === String(tm.id) ? 'selected' : ''}>${lang() === 'en' ? tm.name : CLUB_AR[tm.short] || tm.name}</option>`).join('')}</select></div>
     <button class="btn btn-g btn-b" style="margin-top:10px" onclick="changeTeam()">${I('i-swap')}${tt('تغيير رقم الفريق', 'Change Team ID')}</button></div>
-   <div class="sec"><h2>${I('i-shield')}${tt('طرق الدخول المرتبطة', 'Linked sign-in methods')}</h2></div>
-   <div class="card">${AU.firebaseOn ? [['google', 'google.com', 'Google'], ['apple', 'apple.com', 'Apple'], ['facebook', 'facebook.com', 'Facebook'], ['twitter', 'twitter.com', 'X']].map(([k, id, n]) => `<div class="set-row"><span>${n}</span>${prov.includes(id) ? `<span class="tag lime">${I('i-check')}${tt('مرتبط', 'Linked')}</span>` : `<button class="btn btn-g btn-sm" onclick="linkP('${k}')">${tt('ربط', 'Link')}</button>`}</div>`).join('') : `<p class="mut" style="font-size:13px;margin:0">${tt('ربط Google/Apple/Facebook يحتاج إعداد Firebase (شوف README).', 'Linking providers requires Firebase setup (see README).')}</p>`}</div>
+   ${AU.firebaseOn ? `<div class="sec"><h2>${I('i-shield')}${tt('طرق الدخول المرتبطة', 'Linked sign-in methods')}</h2></div>
+   <div class="card">${AU.firebaseOn ? [['google', 'google.com', 'Google'], ['apple', 'apple.com', 'Apple'], ['facebook', 'facebook.com', 'Facebook'], ['twitter', 'twitter.com', 'X']].map(([k, id, n]) => `<div class="set-row"><span>${n}</span>${prov.includes(id) ? `<span class="tag lime">${I('i-check')}${tt('مرتبط', 'Linked')}</span>` : `<button class="btn btn-g btn-sm" onclick="linkP('${k}')">${tt('ربط', 'Link')}</button>`}</div>`).join('') : `<p class="mut" style="font-size:13px;margin:0">${tt('ربط Google/Apple/Facebook يحتاج إعداد Firebase (شوف README).', 'Linking providers requires Firebase setup (see README).')}</p>`}</div>` : ''}
    <div class="sec"><h2>${I('i-bell')}${tt('الإشعارات', 'Notifications')}</h2></div>
-   <div class="card">${PREFS.map(([k, l]) => `<div class="set-row"><span>${l}</span>${sw(ST.prefs[k] !== false, `setPref('${k}')`)}</div>`).join('')}
+   <div class="card push-card" id="pushCard">${pushCardHTML()}</div>
+   <div class="card" style="margin-top:10px">${PREFS.map(([k, l]) => `<div class="set-row"><span>${l}</span>${sw(ST.prefs[k] !== false, `setPref('${k}')`)}</div>`).join('')}
     <div class="set-row"><span>${tt('إشعارات المتصفح', 'Browser notifications')}<br><small class="mut">${'Notification' in window ? tt('تشتغل والتطبيق مفتوح بالخلفية', 'Works while the app is open in background') : tt('المتصفح لا يدعمها', 'Not supported')}</small></span>${sw(ST.prefs.browser && 'Notification' in window && Notification.permission === 'granted', 'setBrowserN()')}</div></div>
    <div class="sec"><h2>${I('i-globe')}${tt('عام', 'General')}</h2></div>
    <div class="card"><div class="set-row"><span>${tt('اللغة', 'Language')}</span><button class="btn btn-g btn-sm" onclick="toggleLang()">${lang() === 'ar' ? 'English' : 'العربية'}</button></div>
@@ -51,8 +53,26 @@ export function vSettings() {
    <button class="btn btn-r btn-b" style="margin-top:14px" onclick="doLogout()">${I('i-logout')}${tt('تسجيل الخروج', 'Sign out')}</button>
    <p class="mut" style="text-align:center;font-size:11px;margin-top:12px">${tt('تطبيق مستقل غير تابع للدوري الإنجليزي. البيانات من واجهة الفانتازي العامة.', 'Independent app, not affiliated with the Premier League.')}</p>`;
 }
-const persistPrefs = () => { LS.set('fp_prefs', ST.prefs); ST.profile.notif = ST.prefs; AU.saveProfile(ST.user.uid, { notif: ST.prefs }).catch(() => {}); };
+let pushSt = null;
+function pushCardHTML() {
+  if (pushSt === null) { PU.pushState().then((v) => { pushSt = v; const c = document.getElementById('pushCard'); if (c) c.innerHTML = pushCardHTML(); }); return `<div class="mut" style="font-size:13px">${tt('جارِ التحقق…', 'Checking…')}</div>`; }
+  const head = (sub) => `<div class="flex" style="gap:12px;align-items:center"><div class="pbig" style="background:${pushSt === 'on' ? 'rgba(52,211,153,.16)' : 'var(--s3)'};color:${pushSt === 'on' ? 'var(--acc)' : 'var(--mut)'}">${I('i-bell', 'i', 'width:20px;height:20px')}</div><div style="flex:1"><b style="font-size:14.5px">${tt('إشعارات على الجوال', 'Phone notifications')}</b><div class="mut" style="font-size:12.5px;line-height:1.6">${sub}</div></div>${pushSt === 'on' ? `<span class="tag lime">${I('i-check')}${tt('مفعّلة', 'On')}</span>` : ''}</div>`;
+  const M = {
+    on: [tt('توصلك حتى والتطبيق مسكّر: الإغلاق، الإصابات، الأسعار، الأهداف، ونهاية الجولة.', 'Delivered even when the app is closed.'), `<div class="flex" style="gap:8px;margin-top:12px"><button class="btn btn-g btn-sm" style="flex:1" onclick="pushTest(this)">${I('i-send')}${tt('إشعار تجريبي', 'Send test')}</button><button class="btn btn-g btn-sm" onclick="pushOff()">${tt('إيقاف', 'Turn off')}</button></div>`],
+    off: [tt('فعّلها حتى يوصلك كل شي يخص فريقك والتطبيق مسكّر.', 'Turn on to get alerts even when the app is closed.'), `<button class="btn btn-p btn-b" style="margin-top:12px" onclick="pushOn(this)">${I('i-bell')}${tt('تفعيل الإشعارات', 'Enable notifications')}</button>`],
+    'need-install': [tt('على الآيفون الإشعارات تشتغل بس من أيقونة الشاشة الرئيسية: افتح الموقع بسفاري ← زر المشاركة ← «إضافة إلى الشاشة الرئيسية»، وبعدها افتح التطبيق من الأيقونة وفعّلها من هنا.', 'On iPhone: add to Home Screen from Safari, open from the icon, then enable here.'), ''],
+    'need-account': [tt('تحتاج تسجيل دخول بحساب (اسم مستخدم وكلمة مرور) حتى نعرف وين نرسل إشعاراتك.', 'Sign in with an account to enable.'), `<button class="btn btn-g btn-b" style="margin-top:12px" onclick="doLogout()">${tt('تسجيل الدخول بحساب', 'Sign in')}</button>`],
+    denied: [tt('الإذن مرفوض. فعّله من إعدادات الآيفون ← الإشعارات ← فانتازي برو.', 'Permission denied — enable it in system settings.'), ''],
+    unsupported: [tt('هذا المتصفح ما يدعم الإشعارات.', 'Not supported on this browser.'), ''],
+  }[pushSt] || ['', ''];
+  return head(M[0]) + M[1];
+}
+const refreshPush = async () => { pushSt = await PU.pushState(); const c = document.getElementById('pushCard'); if (c) c.innerHTML = pushCardHTML(); };
+const persistPrefs = () => { PU.syncPush(); LS.set('fp_prefs', ST.prefs); ST.profile.notif = ST.prefs; AU.saveProfile(ST.user.uid, { notif: ST.prefs }).catch(() => {}); };
 Object.assign(window, {
+  pushOn: async (b) => { b.disabled = true; try { await PU.enablePush(); toast(tt('تم تفعيل الإشعارات ✓', 'Notifications on ✓')); await refreshPush(); PU.testPush().catch(() => {}); } catch (e) { toast(e.message); b.disabled = false; } },
+  pushOff: async () => { await PU.disablePush(); toast(tt('تم الإيقاف', 'Turned off')); refreshPush(); },
+  pushTest: async (b) => { b.disabled = true; try { const r = await PU.testPush(); toast(r.sent ? tt('انرسل — راح يوصلك خلال ثواني', 'Sent') : tt('ما وصل — جرّب تطفي وتشغّل', 'Failed')); } catch (e) { toast(e.message); } b.disabled = false; },
   setPref: (k) => { ST.prefs[k] = ST.prefs[k] === false; persistPrefs(); window.render(); },
   setBrowserN: async () => {
     if (!('Notification' in window)) return toast(tt('المتصفح لا يدعم الإشعارات', 'Not supported'));
