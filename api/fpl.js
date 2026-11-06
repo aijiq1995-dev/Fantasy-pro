@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   const url = new URL(req.url, 'http://local');
   if (url.searchParams.get('status') === '1') {
     const entries = [...memo.entries()].map(([k, v]) => ({ path: k, age: Math.round((Date.now() - v.t) / 1000) })).sort((a, b) => a.age - b.age).slice(0, 40);
-    return send(res, 200, { ok: true, mock: process.env.FPL_MOCK === '1', aiCoach: !!(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY), uptime: Math.round((Date.now() - stats.started) / 1000), cache: { size: memo.size, hits: stats.hits, misses: stats.misses, entries }, errors: stats.errors.slice(0, 15), now: Date.now() });
+    return send(res, 200, { ok: true, mock: process.env.FPL_MOCK === '1', aiCoach: !!(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY), aiKeys: { claude: !!process.env.ANTHROPIC_API_KEY, gemini: !!process.env.GEMINI_API_KEY }, env: process.env.VERCEL_ENV || 'local', commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7), uptime: Math.round((Date.now() - stats.started) / 1000), cache: { size: memo.size, hits: stats.hits, misses: stats.misses, entries }, errors: stats.errors.slice(0, 15), now: Date.now() });
   }
   let path = (url.searchParams.get('path') || '').replace(/^\/+/, '');
   if (path && !path.endsWith('/')) path += '/';
