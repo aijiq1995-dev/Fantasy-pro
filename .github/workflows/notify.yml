@@ -10,4 +10,4 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Run notifier
-        run: curl -fsS --max-time 70 https://fantasy-pro-aijo0.vercel.app/api/notify || true
+        run: curl -sS --max-time 70 https://fantasy-pro-aijo0.vercel.app/api/notify; echo
