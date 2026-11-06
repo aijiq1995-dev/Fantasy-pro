@@ -22,9 +22,48 @@ export const header = (title, sub = '', right = '') => `<div class="sec" style="
 export const CLUB_AR = { ARS: 'آرسنال', AVL: 'أستون فيلا', BOU: 'بورنموث', BRE: 'برينتفورد', BHA: 'برايتون', BUR: 'بيرنلي', CHE: 'تشيلسي', COV: 'كوفنتري', CRY: 'كريستال بالاس', EVE: 'إيفرتون', FUL: 'فولهام', HUL: 'هال سيتي', IPS: 'إبسويتش', LEE: 'ليدز', LIV: 'ليفربول', MCI: 'مانشستر سيتي', MUN: 'مانشستر يونايتد', NEW: 'نيوكاسل', NFO: 'نوتنغهام فورست', SUN: 'سندرلاند', TOT: 'توتنهام', WHU: 'وست هام', WOL: 'وولفرهامبتون', LEI: 'ليستر', SOU: 'ساوثهامبتون' };
 export const KIT = { ARS: ['#EF0107', '#fff'], AVL: ['#670E36', '#95BFE5'], BOU: ['#DA291C', '#000'], BRE: ['#E30613', '#fff'], BHA: ['#0057B8', '#fff'], BUR: ['#6C1D45', '#99D6EA'], CHE: ['#034694', '#fff'], COV: ['#59CBE8', '#fff'], CRY: ['#1B458F', '#C4122E'], EVE: ['#003399', '#fff'], FUL: ['#f8fafc', '#000'], HUL: ['#F5A12D', '#000'], IPS: ['#3A64A3', '#fff'], LEE: ['#f8fafc', '#1D428A'], LIV: ['#C8102E', '#F6EB61'], MCI: ['#6CABDD', '#fff'], MUN: ['#DA291C', '#FBE122'], NEW: ['#241F20', '#fff'], NFO: ['#DD0000', '#fff'], SUN: ['#EB172B', '#fff'], TOT: ['#f8fafc', '#132257'], WHU: ['#7A263A', '#1BB1E7'], WOL: ['#FDB913', '#231F20'], LEI: ['#003090', '#FDBE11'], SOU: ['#D71920', '#fff'] };
 export const clubName = (short, full) => (lang() === 'en' ? (full || short) : CLUB_AR[short] || full || short);
+/* أزياء الأندية (تصميم أصلي بألوان كل نادي — بدون شعارات):
+   b = لون القميص، s = لون الأكمام، t = لون الحواف والكتابة، p = النقشة (stripes/hoops/pin/halves/sash)، p2 = لون النقشة، gk = زي الحارس */
+export const KITS = {
+  ARS: { b: '#DB0007', s: '#FFFFFF', t: '#FFFFFF', gk: ['#E5E7EB', '#111827'] }, AVL: { b: '#670E36', s: '#95BFE5', t: '#FDE68A', gk: ['#FACC15', '#111827'] },
+  BOU: { b: '#DA291C', p: 'stripes', p2: '#111111', t: '#111111', gk: ['#22C55E', '#111827'] }, BRE: { b: '#E30613', p: 'stripes', p2: '#FFFFFF', t: '#111111', gk: ['#FACC15', '#111827'] },
+  BHA: { b: '#0057B8', p: 'stripes', p2: '#FFFFFF', t: '#FFFFFF', gk: ['#EC4899', '#1E3A8A'] }, BUR: { b: '#6C1D45', s: '#99D6EA', t: '#99D6EA', gk: ['#F59E0B', '#111827'] },
+  CHE: { b: '#034694', t: '#FFFFFF', p: 'pin', p2: '#1E5BB8', gk: ['#111827', '#A3E635'] }, COV: { b: '#59CBE8', t: '#FFFFFF', gk: ['#111827', '#59CBE8'] },
+  CRY: { b: '#1B458F', p: 'stripes', p2: '#C4122E', t: '#FFFFFF', gk: ['#A3E635', '#111827'] }, EVE: { b: '#003399', t: '#FFFFFF', gk: ['#F97316', '#111827'] },
+  FUL: { b: '#F8FAFC', t: '#111111', gk: ['#22C55E', '#111827'] }, HUL: { b: '#F5A12D', p: 'stripes', p2: '#111111', t: '#111111', gk: ['#3B82F6', '#FFFFFF'] },
+  IPS: { b: '#3A64A3', t: '#FFFFFF', gk: ['#F59E0B', '#111827'] }, LEE: { b: '#F8FAFC', t: '#1D428A', p: 'pin', p2: '#C7D7F0', gk: ['#111827', '#FFCD00'] },
+  LIV: { b: '#C8102E', t: '#FFFFFF', gk: ['#22C55E', '#111827'] }, MCI: { b: '#6CABDD', t: '#FFFFFF', gk: ['#111827', '#A3E635'] },
+  MUN: { b: '#DA291C', t: '#FFFFFF', gk: ['#22C55E', '#111827'] }, NEW: { b: '#F8FAFC', p: 'stripes', p2: '#111111', t: '#111111', gk: ['#F59E0B', '#111827'] },
+  NFO: { b: '#DD0000', t: '#FFFFFF', gk: ['#111827', '#F59E0B'] }, SUN: { b: '#EB172B', p: 'stripes', p2: '#FFFFFF', t: '#111111', gk: ['#22C55E', '#111827'] },
+  TOT: { b: '#F8FAFC', t: '#132257', gk: ['#F97316', '#132257'] }, WHU: { b: '#7A263A', s: '#1BB1E7', t: '#F3D459', gk: ['#22C55E', '#111827'] },
+  WOL: { b: '#FDB913', t: '#231F20', gk: ['#22C55E', '#111827'] }, LEI: { b: '#003090', t: '#FDBE11', gk: ['#22C55E', '#111827'] },
+  SOU: { b: '#D71920', p: 'stripes', p2: '#FFFFFF', t: '#111111', gk: ['#FACC15', '#111827'] },
+};
+let SID = 0;
+const BODY = 'M30 8 L14 14 L3 34 L16 41 L22 32 L22 92 Q22 95 25 95 L75 95 Q78 95 78 92 L78 32 L84 41 L97 34 L86 14 L70 8 Q66 16 50 17 Q34 16 30 8 Z';
+const BODY_GK = 'M30 8 L14 14 L4 54 L15 57 L22 34 L22 92 Q22 95 25 95 L75 95 Q78 95 78 92 L78 34 L85 57 L96 54 L86 14 L70 8 Q66 16 50 17 Q34 16 30 8 Z';
+const lum = (h) => { const n = parseInt(h.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
 export function shirt(short, pos, cls = '') {
-  const k = KIT[short] || ['#64748b', '#fff'], gk = pos === 'GK', c1 = gk ? '#22e08a' : k[0], c2 = gk ? '#111827' : k[1];
-  return `<svg class="${cls}" viewBox="0 0 48 48"><path d="M16 4l-10 5-4 10 7 3 2-4v26h26V18l2 4 7-3-4-10-10-5c-1 3-4 5-8 5s-7-2-8-5z" fill="${c1}" stroke="${c1 === '#f8fafc' ? c2 : 'rgba(0,0,0,.35)'}" stroke-width="1.4"/><path d="M16 4c1 3 4 5 8 5s7-2 8-5" fill="none" stroke="${c2}" stroke-width="2.4"/><path d="M11 22h26" stroke="${c2}" stroke-width="2" opacity=".35"/></svg>`;
+  const K = KITS[short] || { b: (KIT[short] || ['#64748b'])[0], t: (KIT[short] || [0, '#fff'])[1] }, gk = pos === 'GK', id = 'k' + (++SID);
+  const b = gk ? (K.gk || ['#22C55E', '#111827'])[0] : K.b, t = gk ? (K.gk || ['#22C55E', '#111827'])[1] : K.t || '#fff', sl = gk ? b : K.s || b;
+  const body = gk ? BODY_GK : BODY;
+  let pat = '';
+  if (!gk && K.p === 'stripes') for (let x = 26; x < 78; x += 13) pat += `<rect x="${x}" y="0" width="6.5" height="100" fill="${K.p2}"/>`;
+  else if (!gk && K.p === 'pin') for (let x = 27; x < 78; x += 6) pat += `<rect x="${x}" y="0" width="1.3" height="100" fill="${K.p2}" opacity=".9"/>`;
+  else if (!gk && K.p === 'hoops') for (let y = 22; y < 95; y += 14) pat += `<rect x="0" y="${y}" width="100" height="7" fill="${K.p2}"/>`;
+  else if (!gk && K.p === 'halves') pat = `<rect x="50" y="0" width="50" height="100" fill="${K.p2}"/>`;
+  const sleeves = gk ? '' : `<path d="M24 10.5 L14 14 L3 34 L16 41 L22 32 Z M76 10.5 L86 14 L97 34 L84 41 L78 32 Z" fill="${sl}"/>`;
+  const cuffs = gk ? `<path d="M4.6 50 L15.8 53.4 M95.4 50 L84.2 53.4" stroke="${t}" stroke-width="3" opacity=".9"/>` : `<path d="M4.4 31.5 L17 38.5 M95.6 31.5 L83 38.5" stroke="${t}" stroke-width="3" opacity=".95"/>`;
+  const light = lum(b) > 0.8;
+  return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><defs><clipPath id="${id}c"><path d="${body}"/></clipPath>
+   <linearGradient id="${id}h" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".34"/><stop offset=".26" stop-color="#000" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset=".74" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".34"/></linearGradient>
+   <linearGradient id="${id}v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient></defs>
+   <g clip-path="url(#${id}c)"><rect width="100" height="100" fill="${b}"/>${pat}${sleeves}<rect width="100" height="100" fill="url(#${id}h)"/><rect width="100" height="100" fill="url(#${id}v)"/>
+    <path d="M36 40 Q40 62 35 92 M64 40 Q60 62 65 92" stroke="#000" stroke-opacity=".10" stroke-width="2" fill="none"/></g>
+   <path d="M38 10.5 Q50 23 62 10.5 Q56 16.5 50 16.8 Q44 16.5 38 10.5 Z" fill="#000" fill-opacity=".35"/>
+   <path d="M37 10 Q50 24 63 10" stroke="${t}" stroke-width="3.4" fill="none" stroke-linecap="round"/>${cuffs}
+   <path d="${body}" fill="none" stroke="${light ? 'rgba(15,23,42,.45)' : 'rgba(0,0,0,.42)'}" stroke-width="1.3" stroke-linejoin="round"/>
+   <text x="50" y="${gk ? 58 : 60}" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="15" fill="${t}" stroke="${lum(t) > 0.6 ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.8)'}" stroke-width="${K.p === 'stripes' && !gk ? 2.6 : 0.8}" stroke-linejoin="round" paint-order="stroke">${esc(short || '')}</text></svg>`;
 }
 export function crest(short, size = 40) {
   const k = KIT[short] || ['#334155', '#fff'];

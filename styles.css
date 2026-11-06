@@ -713,3 +713,4 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .sp-p.mine{box-shadow:0 0 0 1.5px var(--acc)}
 .sp-notes{margin-top:6px;font-size:12px}.sp-notes summary{color:var(--acc);cursor:pointer;padding:4px 0}.sp-notes p{color:var(--mut);margin:4px 0;text-align:left;line-height:1.6}
 .shc-img{width:100%;border-radius:18px;display:block;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.mini svg text,.mini-sh svg text,.sp-p svg text,.nw-ps svg text{display:none}
