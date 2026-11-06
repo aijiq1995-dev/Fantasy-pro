@@ -581,3 +581,29 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .rv-line{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.7;margin-top:6px}
 .rv-det{margin-top:10px}
 .rv-det summary{cursor:pointer;font-size:13px;color:var(--acc);padding:6px 0}
+
+/* ===== v3.9 News centre ===== */
+.nw-hero{background:linear-gradient(160deg,rgba(52,211,153,.10),transparent 55%),var(--s1)}
+.nw-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-inline-end:6px;box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:nwPulse 1.8s infinite}
+@keyframes nwPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.nw-tabs{overflow-x:auto;scrollbar-width:none}
+.nw-tabs button{white-space:nowrap;display:inline-flex;gap:5px;align-items:center}
+.nw-tabs small{font-family:Inter,sans-serif;font-size:10.5px;opacity:.65}
+.nw-day{font-size:12px;font-weight:600;color:var(--mut);margin:16px 4px 8px}
+.nw-card{display:flex;gap:12px;padding:12px 14px;border-radius:16px;background:var(--s1);border:1px solid var(--line);margin-bottom:8px;animation:fadeUp .4s both;animation-delay:var(--d);cursor:pointer}
+.nw-card.mine{border-color:rgba(52,211,153,.4);background:linear-gradient(160deg,rgba(52,211,153,.07),transparent 60%),var(--s1)}
+.nw-ic{width:40px;height:40px;border-radius:12px;background:var(--s3);display:grid;place-items:center;flex:none;overflow:hidden}
+.nw-ic .mini-sh{width:34px;height:34px}
+.nw-body{flex:1;min-width:0}
+.nw-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px}
+.nw-st,.nw-cat{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent);padding:2px 7px;border-radius:99px}
+.nw-new{width:7px;height:7px;border-radius:50%;background:var(--acc);margin-inline-start:auto}
+.nw-txt{font-size:13.5px;line-height:1.7;margin-top:4px}
+.nw-title{display:block;font-size:14px;font-weight:600;line-height:1.6;margin-top:4px;color:var(--txt);text-decoration:none}
+.nw-orig{font-size:11px;color:var(--mut);opacity:.75;margin-top:3px;text-align:left}
+.nw-meta{font-size:11.5px;color:var(--mut);margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.nw-ps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.nw-ps button{display:inline-flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--line);border-radius:99px;padding:3px 9px 3px 4px;font-size:12px;color:var(--txt)}
+.nw-ps .mini-sh{width:20px;height:20px}
+.icon-btn.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}

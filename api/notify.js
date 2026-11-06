@@ -9,6 +9,9 @@
 ========================================================= */
 import { kv, getJ, setJ, kvEnabled, send } from './_kv.js';
 import { sendPush } from './_webpush.js';
+import { newsAr } from '../js/newsar.js';
+import { fetchFeeds, h as trHash } from './news.js';
+import crypto from 'node:crypto';
 
 export const config = { maxDuration: 60 };
 const BASE = 'https://fantasy.premierleague.com/api/';
@@ -31,12 +34,14 @@ export default async function handler(req, res) {
 
     /* ---------- 1) تغيّرات اللاعبين (حالة + سعر) ---------- */
     const snapP = await getJ('snap:players');
-    const nowP = Object.fromEntries(boot.elements.map((e) => [e.id, [e.status, e.chance_of_playing_next_round ?? 100, e.now_cost]]));
+    const nh = (t) => (t ? crypto.createHash('md5').update(t).digest('hex').slice(0, 8) : '');
+    const nowP = Object.fromEntries(boot.elements.map((e) => [e.id, [e.status, e.chance_of_playing_next_round ?? 100, e.now_cost, nh(e.news)]]));
     const statusCh = new Map(), priceCh = new Map();
     if (snapP) for (const [id, v] of Object.entries(nowP)) {
       const o = snapP[id]; if (!o) continue;
       if ((v[0] !== o[0] || v[1] < o[1]) && v[0] !== 'a') statusCh.set(+id, v);
       if (v[0] === 'a' && o[0] !== 'a') statusCh.set(+id, v); // رجع جاهز
+      if (o[3] !== undefined && v[3] && v[3] !== o[3] && !statusCh.has(+id)) statusCh.set(+id, v); // تحديث نص الخبر (مثلاً موعد الرجوع)
       if (v[2] !== o[2]) priceCh.set(+id, v[2] - o[2]);
     }
     await setJ('snap:players', nowP);
@@ -77,6 +82,25 @@ export default async function handler(req, res) {
     }
     const day = new Date().toISOString().slice(0, 10);
 
+    /* ---------- 3ب) أخبار المصادر (BBC/Guardian/Sky) كل ~10 دقايق ---------- */
+    let freshNews = [], feedTotal = -1;
+    if (await kv('SET', 'lock:feeds', '1', 'NX', 'EX', 540)) {
+      try {
+        const { items, ok } = await fetchFeeds(); feedTotal = items.length; log.feedSrc = ok;
+        const seen = new Set((await getJ('snap:feeds')) || []), first = !seen.size;
+        const names = boot.elements.filter((e) => (e.web_name || '').length >= 4).map((e) => [e.id, new RegExp(`\\b${e.web_name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')]);
+        for (const x of items) {
+          if (seen.has(x.link)) continue; seen.add(x.link);
+          if (first || x.cat === 'other' || Date.now() - x.at > 6 * 36e5) continue;
+          const txt = `${x.title} ${x.desc}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          x.players = names.filter(([, re]) => re.test(txt)).map(([id]) => id);
+          if (x.players.length) { try { const c = await kv('GET', 'tr:' + trHash(x.title)); if (c) x.titleAr = JSON.parse(c).t; } catch {} freshNews.push(x); }
+        }
+        await setJ('snap:feeds', [...seen].slice(-400), 7 * 86400);
+      } catch {}
+      log.events.push(`feeds:${freshNews.length}/${feedTotal}`);
+    }
+
     /* ---------- 4) لكل مستخدم ---------- */
     const uids = (await kv('SMEMBERS', 'push:users')) || [];
     const pickGW = cur?.id;
@@ -102,7 +126,7 @@ export default async function handler(req, res) {
       // الإصابات
       if (on('injury')) for (const [id, v] of statusCh) if (squad.has(id)) {
         const back = v[0] === 'a';
-        msgs.push({ k: `st_${id}_${v[0]}_${v[1]}`, title: back ? `✅ ${name(id)} رجع جاهز` : `🩹 ${name(id)}: ${ST_AR[v[0]] || 'تحديث'}${v[0] === 'd' ? ` (${v[1]}%)` : ''}`, body: back ? 'صار متاح للمشاركة.' : (P[id]?.news || ''), url: `/#players` });
+        msgs.push({ k: `st_${id}_${v[0]}_${v[1]}_${v[3]}`, title: back ? `✅ ${name(id)} رجع جاهز` : `🩹 ${name(id)}: ${ST_AR[v[0]] || 'تحديث'}${v[0] === 'd' ? ` (${v[1]}%)` : ''}`, body: back ? 'صار متاح للمشاركة.' : (newsAr(P[id]?.news) || P[id]?.news || ''), url: `/#news` });
       }
       // الأسعار
       if (on('price')) {
@@ -112,6 +136,11 @@ export default async function handler(req, res) {
           const up = mine.filter(([, s]) => s > 0).map(([id]) => name(id)), dn = mine.filter(([, s]) => s < 0).map(([id]) => name(id));
           msgs.push({ k: `pp_${day}`, title: '💰 توقع الأسعار الليلة', body: [up.length ? `يصعد: ${up.join('، ')}` : '', dn.length ? `ينزل: ${dn.join('، ')}` : ''].filter(Boolean).join(' · '), url: '/#prices' });
         }
+      }
+      // أخبار المصادر عن لاعبينه
+      if (on('injury')) for (const x of freshNews) if (x.players.some((id) => squad.has(id) || watch.has(id))) {
+        const ic = { injury: '🩹', ban: '🟥', press: '🎙️', team: '📋' }[x.cat] || '📰';
+        msgs.push({ k: `nw_${trHash(x.link)}`, title: `${ic} ${x.titleAr || x.title}`, body: `${x.src} · اضغط حتى تقرأ`, url: '/#news' });
       }
       // المباشر
       if (on('goals')) for (const [id, e] of liveEv) if (squad.has(id) && mult[id] > 0) {

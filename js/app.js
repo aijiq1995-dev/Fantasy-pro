@@ -147,7 +147,7 @@ function loadPlan() {
 
 /* ---------- التنقل ---------- */
 const NAV = [
-  ['g_main', [['home', 'i-home'], ['team', 'i-pitch'], ['season', 'i-season'], ['live', 'i-live'], ['search', 'i-sparkle']]],
+  ['g_main', [['home', 'i-home'], ['team', 'i-pitch'], ['season', 'i-season'], ['live', 'i-live'], ['news', 'i-news'], ['search', 'i-sparkle']]],
   ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['prices', 'i-coin'], ['lab', 'i-lab'], ['defcon', 'i-shield'], ['compare', 'i-compare']]],
   ['g_comp', [['leagues', 'i-trophy'], ['captains', 'i-crown'], ['chips', 'i-bolt'], ['stats', 'i-history'], ['achievements', 'i-medal']]],
   ['g_more', [['notifs', 'i-bell'], ['settings', 'i-settings']]],
