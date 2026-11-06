@@ -1,7 +1,9 @@
 /* =========================================================
    /api/coach — المدرب الذكي (Claude)
    متغيرات البيئة بـ Vercel:
-     ANTHROPIC_API_KEY   (مطلوب لتشغيل المدرب بالذكاء الاصطناعي)
+     ANTHROPIC_API_KEY   (Claude — مدفوع حسب الاستخدام)
+     GEMINI_API_KEY      (بديل مجاني: Google AI Studio — حدود يومية)
+     GEMINI_MODEL        (اختياري، الافتراضي gemini-flash-latest)
      FIREBASE_API_KEY    (اختياري لكن منصوح: يتأكد إن الطلب من مستخدم مسجّل)
      CLAUDE_MODEL        (اختياري، الافتراضي claude-sonnet-5-5)
 ========================================================= */
@@ -30,8 +32,8 @@ async function readBody(req) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return send(res, 503, { error: 'no_key' });
+  const key = process.env.ANTHROPIC_API_KEY, gkey = process.env.GEMINI_API_KEY;
+  if (!key && !gkey) return send(res, 503, { error: 'no_key' });
   // يقبل الطلبات من نفس موقع التطبيق فقط (حتى ما يستخدم أحد مفتاحك من برا)
   const host = req.headers['x-forwarded-host'] || req.headers.host || '';
   const origin = req.headers.origin || req.headers.referer || '';
@@ -63,6 +65,21 @@ export default async function handler(req, res) {
     .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
   while (history.length && history[0].role !== 'user') history.shift();
 
+  if (!key) {
+    // Gemini (مجاني ضمن حدود Google AI Studio)
+    try {
+      const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST', headers: { 'x-goog-api-key': gkey, 'content-type': 'application/json' },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM + context }] }, contents: [...history, { role: 'user', content: question }].map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.5 } }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 429) return send(res, 429, { error: 'وصلت حد Gemini المجاني لهالفترة — جرّب بعد شوية' });
+      if (!r.ok) return send(res, 502, { error: d?.error?.message || 'AI error' });
+      const text = (d.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
+      return text ? send(res, 200, { text, provider: 'gemini' }) : send(res, 502, { error: 'empty answer' });
+    } catch { return send(res, 502, { error: 'تعذّر الاتصال بالذكاء الاصطناعي' }); }
+  }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
