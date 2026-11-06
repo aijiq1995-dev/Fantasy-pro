@@ -108,7 +108,15 @@ async function onSignedIn(u) {
   if (!ST.profile?.teamId) return renderLink();
   loadAll();
 }
+let staleT = 0, autoRetryT = 0;
+function staleBar() {
+  let b = document.getElementById('staleBar');
+  if (!FPL.staleState.on) { b?.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'staleBar'; b.className = 'stale-bar'; document.body.appendChild(b); }
+  b.innerHTML = `<span class="sb-dot"></span><span><b>${tt('موقع الفانتازي يتحدّث الآن', 'FPL is updating')}</b> · ${tt('نعرض آخر بيانات محفوظة وراح نحدّث تلقائياً أول ما يرجع', 'showing last saved data, will refresh automatically')}</span>`;
+}
 export async function loadAll(fresh = false) {
+  FPL.clearStale(); clearTimeout(staleT); clearTimeout(autoRetryT);
   const silent = !!ST.G; if (silent) { toast(tt('جارِ التحديث…', 'Refreshing…')); document.body.classList.add('busy'); } else splash(tt('جارِ جلب بيانات فريقك من الفانتازي…', 'Fetching your FPL data…'));
   try {
     const [G, E] = await Promise.all([FPL.loadGame(fresh), FPL.loadEntry(ST.profile.teamId, fresh)]);
@@ -121,10 +129,14 @@ export async function loadAll(fresh = false) {
     AU.touchProfile(ST.user.uid, { teamName: E.entry.name });
     syncPush();
     scanStatic();
-    buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); toast(tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
+    const wasStale = !!document.getElementById('staleBar');
+    buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); if (!FPL.staleState.on) toast(wasStale ? tt('رجع موقع الفانتازي — انحدّثت البيانات ✓', 'FPL is back — data updated ✓') : tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
+    staleBar();
+    if (FPL.staleState.on) staleT = setTimeout(() => loadAll(true), 60e3); // نعيد المحاولة كل دقيقة لحد ما يرجع
   } catch (ex) {
     document.body.classList.remove('busy');
-    if (silent) { toast(ex.message); return; }
+    if (silent) { FPL.staleState.on = true; staleBar(); staleT = setTimeout(() => loadAll(true), 60e3); return; }
+    autoRetryT = setTimeout(() => loadAll(true), 30e3);
     AU.logError(ST.user?.uid, ex.message, 'loadAll');
     splash(`${esc(ex.message)}<br><button class="btn btn-p btn-sm" style="margin-top:12px" onclick="loadAll(true)">${tt('إعادة المحاولة', 'Retry')}</button> <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="changeTeam()">${tt('تغيير رقم الفريق', 'Change Team ID')}</button>`);
   }

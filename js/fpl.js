@@ -8,25 +8,36 @@ const POS = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 const mem = new Map();
 export const lastUpdated = {};
 
+/** وضع «الفانتازي يتحدث»: نعرض آخر بيانات محفوظة بدل ما يوكف التطبيق */
+export const staleState = { on: false, since: 0 };
+const markStale = (on) => { if (on && !staleState.on) staleState.since = Date.now(); staleState.on = on; };
 async function get(path, params = {}, { ttl = 0, fresh = false } = {}) {
   const qs = new URLSearchParams({ path, ...params, ...(fresh ? { fresh: '1' } : {}) }).toString();
   const key = qs.replace('&fresh=1', '');
   const hit = mem.get(key);
   if (!fresh && hit && Date.now() - hit.t < ttl * 1000) return hit.d;
+  const fallback = (err) => {
+    const cached = hit ? { t: hit.t, d: hit.d } : LS.get('fpc_' + key);
+    if (cached) { lastUpdated[path] = cached.t; markStale(true); return cached.d; }
+    throw err;
+  };
   let res;
   try { res = await fetch('/api/fpl?' + qs); }
-  catch {
-    const cached = LS.get('fpc_' + key);
-    if (cached) { lastUpdated[path] = cached.t; return cached.d; }
-    throw new Error('تعذّر الاتصال بالسيرفر — تأكد من الإنترنت');
-  }
+  catch { return fallback(new Error('تعذّر الاتصال بالسيرفر — تأكد من الإنترنت')); }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw Object.assign(new Error(data?.error || 'خطأ ' + res.status), { status: res.status });
+  if (!res.ok || data == null) {
+    if (res.status === 404) throw Object.assign(new Error(data?.error || 'غير موجود'), { status: 404 });
+    return fallback(Object.assign(new Error(data?.error || 'خطأ ' + res.status), { status: res.status }));
+  }
+  const stale = res.headers.get('X-FP-Stale') === '1';
+  if (stale) markStale(true);
   const now = Date.now();
-  mem.set(key, { t: now, d: data }); lastUpdated[path] = now;
-  if (JSON.stringify(data).length < 400000) LS.set('fpc_' + key, { t: now, d: data });
+  mem.set(key, { t: stale ? now - ttl * 1000 : now, d: data }); lastUpdated[path] = now;
+  if (!stale) { const str = JSON.stringify(data); if (str.length < (path === 'bootstrap-static/' ? 2500000 : 400000)) { try { localStorage.setItem('fpc_' + key, JSON.stringify({ t: now, d: data })); } catch { pruneLS(); } } }
   return data;
 }
+function pruneLS() { try { Object.keys(localStorage).filter((k) => k.startsWith('fpc_') && !k.includes('bootstrap')).forEach((k) => localStorage.removeItem(k)); } catch {} }
+export const clearStale = () => markStale(false);
 
 export async function loadGame(fresh = false) {
   const [b, f] = await Promise.all([get('bootstrap-static/', {}, { ttl: 300, fresh }), get('fixtures/', {}, { ttl: 600, fresh })]);

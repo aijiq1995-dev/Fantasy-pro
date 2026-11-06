@@ -729,3 +729,7 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 /* أسهم الصعود والنزول: أخضر وأحمر بكل مكان */
 .up,small.up,em.up,b.up,span.up{color:#34D399!important}
 .down,small.down,em.down,b.down,span.down{color:#F87171!important}
+.stale-bar{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:rgba(30,24,8,.95);border:1px solid rgba(251,191,36,.45);color:#FDE68A;font-size:12.5px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.4);backdrop-filter:blur(10px)}
+.stale-bar b{color:#FBBF24}
+.sb-dot{width:9px;height:9px;border-radius:50%;background:#FBBF24;flex:none;animation:nwPulse 1.6s infinite}
+@media(min-width:900px){.stale-bar{left:auto;width:420px;bottom:20px}}

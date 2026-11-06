@@ -5,6 +5,8 @@
    - يرجّع آخر نسخة محفوظة إذا موقع الفانتازي وقف
    - fresh=1 يتجاوز الكاش (محدود: مرة كل 30 ثانية لكل مسار)
 ========================================================= */
+import zlib from 'node:zlib';
+import { kv, kvEnabled } from './_kv.js';
 const BASE = 'https://fantasy.premierleague.com/api/';
 const UA = 'Mozilla/5.0 (compatible; FantasyPro/2.0)';
 const ROUTES = [
@@ -23,6 +25,18 @@ const ROUTES = [
   { re: /^team\/set-piece-notes\/$/, ttl: 3600 },
 ];
 const memo = new Map();
+/* نسخة احتياطية بقاعدة البيانات: وقت تحديث الفانتازي (الديدلاين) نرجّع آخر بيانات صحيحة بدل ما يوكف التطبيق */
+const BACKUP = (k) => /^(bootstrap-static\/|fixtures\/|entry\/\d+\/(history\/|transfers\/|event\/\d+\/picks\/)?$|event\/\d+\/live\/)/.test(k);
+const lastBackup = new Map();
+async function saveBackup(k, data) {
+  if (!kvEnabled || !BACKUP(k) || Date.now() - (lastBackup.get(k) || 0) < 600e3) return;
+  lastBackup.set(k, Date.now());
+  try { const z = zlib.gzipSync(JSON.stringify(data)).toString('base64'); if (z.length < 900000) await kv('SET', 'fplbk:' + k, z, 'EX', 4 * 86400); } catch {}
+}
+async function loadBackup(k) {
+  if (!kvEnabled || !BACKUP(k)) return null;
+  try { const z = await kv('GET', 'fplbk:' + k); return z ? JSON.parse(zlib.gunzipSync(Buffer.from(z, 'base64')).toString()) : null; } catch { return null; }
+}
 const stats = { hits: 0, misses: 0, errors: [], started: Date.now() };
 const lastFresh = new Map();
 
@@ -70,23 +84,30 @@ export default async function handler(req, res) {
   try {
     let data;
     if (process.env.FPL_MOCK === '1') {
+      if (process.env.FPL_MOCK_DOWN === '1') throw Object.assign(new Error('mock updating'), { updating: true });
       const { mockFPL } = await import('./_mock.js');
       data = mockFPL(path, { page, event: ev });
       if (data == null) return send(res, 404, { error: 'غير موجود' });
     } else {
       const r = await fetch(BASE + key, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
       if (r.status === 404) return send(res, 404, { error: 'غير موجود — تأكد من الرقم' });
-      if (r.status === 503) return send(res, 503, { error: 'موقع الفانتازي يتحدّث حالياً (عادة بين الجولات) — جرّب بعد شوية' });
-      if (!r.ok) throw new Error('upstream ' + r.status);
-      data = await r.json();
+      if (r.status === 503 || !r.ok) throw Object.assign(new Error('upstream ' + r.status), { updating: r.status === 503 });
+      const txt = await r.text();
+      try { data = JSON.parse(txt); } catch { throw Object.assign(new Error('upstream updating'), { updating: true }); }
     }
     if (path === 'bootstrap-static/') data = slimBootstrap(data);
     memo.set(key, { t: Date.now(), d: data });
     if (memo.size > 500) memo.delete(memo.keys().next().value);
+    await saveBackup(key, data);
     return send(res, 200, data, ttl);
   } catch (e) {
     stats.errors.unshift({ t: Date.now(), path: key, msg: String(e.message || e) }); stats.errors.length = Math.min(stats.errors.length, 30);
-    if (hit) return send(res, 200, hit.d, 30);
+    res.setHeader('X-FP-Stale', '1');
+    if (hit) return send(res, 200, hit.d, 20);
+    const bk = await loadBackup(key);
+    if (bk) { memo.set(key, { t: Date.now() - ttl * 1000, d: bk }); return send(res, 200, bk, 20); }
+    res.removeHeader('X-FP-Stale');
+    if (e.updating) return send(res, 503, { error: 'موقع الفانتازي يتحدّث حالياً (وقت الإغلاق) — راح نحاول تلقائياً' });
     return send(res, 502, { error: 'تعذّر الاتصال بموقع الفانتازي — حاول بعد شوية' });
   }
 }
