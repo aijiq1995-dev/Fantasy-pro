@@ -2,7 +2,7 @@
 const D = {
   ar: {
     home: 'الرئيسية', team: 'فريقي', players: 'اللاعبين', live: 'المباشر', more: 'المزيد', market: 'سوق الانتقالات',
-    compare: 'مقارنة اللاعبين', leagues: 'الدوريات', chips: 'الأوراق والاستراتيجية', stats: 'التحليلات', notifs: 'الإشعارات',
+    compare: 'مقارنة اللاعبين', defcon: 'المساهمات الدفاعية', leagues: 'الدوريات', chips: 'الأوراق والاستراتيجية', stats: 'التحليلات', notifs: 'الإشعارات',
     achievements: 'الإنجازات', coach: 'المدرب الذكي', admin: 'لوحة الإدارة', settings: 'الإعدادات', search: 'المساعد الذكي', season: 'الجولات', lab: 'مختبر القرارات', prices: 'توقع الأسعار', captains: 'نسبة الكبتنة', g_main: 'الأساسي', g_players: 'اللاعبين والسوق', g_comp: 'المنافسة', g_more: 'المزيد',
     gw: 'الجولة', points: 'نقطة', pts: 'نقاط', total: 'المجموع', rank: 'الترتيب', overall: 'الترتيب العام', avg: 'المعدل', highest: 'الأعلى',
     deadline: 'الموعد النهائي', bank: 'البنك', value: 'القيمة', ft: 'انتقالات مجانية', price: 'السعر', form: 'الفورم', own: 'الملكية',
@@ -15,7 +15,7 @@ const D = {
   },
   en: {
     home: 'Home', team: 'My Team', players: 'Players', live: 'Live', more: 'More', market: 'Transfer Market',
-    compare: 'Compare', leagues: 'Leagues', chips: 'Chips & Strategy', stats: 'Analytics', notifs: 'Notifications',
+    compare: 'Compare', defcon: 'DefCon', leagues: 'Leagues', chips: 'Chips & Strategy', stats: 'Analytics', notifs: 'Notifications',
     achievements: 'Achievements', coach: 'AI Coach', admin: 'Admin', settings: 'Settings', search: 'Smart assistant', season: 'Gameweeks', lab: 'Decision lab', prices: 'Price predictor', captains: 'Captaincy', g_main: 'Main', g_players: 'Players & market', g_comp: 'Competition', g_more: 'More',
     gw: 'GW', points: 'pts', pts: 'Points', total: 'Total', rank: 'Rank', overall: 'Overall rank', avg: 'Average', highest: 'Highest',
     deadline: 'Deadline', bank: 'Bank', value: 'Value', ft: 'Free transfers', price: 'Price', form: 'Form', own: 'Owned',

@@ -40,6 +40,7 @@ export async function loadGame(fresh = false) {
     saves: e.saves, bonus: e.bonus, bps: e.bps, gc: e.goals_conceded, xg: +e.expected_goals || 0, xa: +e.expected_assists || 0,
     xgi: +e.expected_goal_involvements || 0, ict: +e.ict_index || 0, threat: +e.threat || 0, creativity: +e.creativity || 0,
     cc: (e.cost_change_event || 0) / 10, ccs: (e.cost_change_start || 0) / 10, tin: e.transfers_in_event || 0, tout: e.transfers_out_event || 0,
+    dc: e.defensive_contribution || 0, dc90: +e.defensive_contribution_per_90 || 0, pen: e.penalties_order ?? null, cor: e.corners_and_indirect_freekicks_order ?? null, dfk: e.direct_freekicks_order ?? null,
   }));
   const events = b.events.map((e) => ({ id: e.id, deadline: e.deadline_time, cur: e.is_current, next: e.is_next, fin: e.finished, checked: e.data_checked,
     avg: e.average_entry_score, top: e.highest_score, topEl: e.top_element, cap: e.most_captained, chipPlays: e.chip_plays || [] }));

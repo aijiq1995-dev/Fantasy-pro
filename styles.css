@@ -537,3 +537,20 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 [dir=ltr] .cp-bar i{transform-origin:left;background:linear-gradient(90deg,#F59E0B,#FBBF24)}
 .cp-val{color:var(--gold);font-size:17px!important;min-width:56px}
 .cp-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:center;text-align:center;font-size:12px;margin-top:10px;line-height:1.8}
+
+/* ===== v3.8 DefCon ===== */
+.dc-hero{background:linear-gradient(135deg,rgba(52,211,153,.10),transparent 60%),var(--s1)}
+.dc-row{animation:fadeUp .4s both;animation-delay:var(--d)}
+.dc-ring{--p:0;--c:var(--acc);width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),var(--s3) 0);position:relative}
+.dc-ring::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--s1)}
+.dc-ring b{position:relative;font-size:13px}
+.dc-ring small{font-size:9px;opacity:.7}
+.dc-bar{height:6px;border-radius:99px;background:var(--s3);overflow:hidden}
+.dc-bar i{display:block;height:100%;border-radius:99px;background:var(--gold);transition:width .6s}
+.dc-live{display:flex;align-items:center;gap:8px;margin-top:5px}
+.dc-live .dc-bar{flex:1;max-width:120px}
+.dc-live span{font-size:11.5px;color:var(--txt)!important}
+.dc-gw{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--s2);border:1px solid var(--line)}
+.dc-gw.ok{border-color:rgba(52,211,153,.45)}
+.dc-gw.ok .dc-bar i{background:var(--acc)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
