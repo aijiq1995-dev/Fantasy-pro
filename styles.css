@@ -738,3 +738,11 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .stale-tag.hidden{display:none}
 .fresh.stale{color:#FBBF24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:99px;padding:0 8px;cursor:pointer}
 .fresh.stale i{background:#FBBF24;animation:nwPulse 1.6s infinite}
+.fx-sc{display:flex;gap:10px;align-items:center;justify-content:center}.fx-sc i{font-style:normal;opacity:.6}
+.dc-evt{font-size:13px;opacity:.6;line-height:1.9}.dc-evt.ok{opacity:1}
+.dc-evt b{font-family:var(--num);font-size:11.5px;color:var(--mut);font-weight:600}
+.dc-evt em{font-style:normal;font-size:11px;font-weight:700;color:#34D399;background:rgba(52,211,153,.14);padding:0 6px;border-radius:99px}
+.dc-wrap>span{min-width:0}
+.dc-evt{display:flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.9}
+.dc-a .dc-evt{justify-content:flex-end}
+.dc-evt .n{overflow:hidden;text-overflow:ellipsis;min-width:0}
