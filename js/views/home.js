@@ -1,4 +1,5 @@
 /* الرئيسية: المهم بس — وضعك الحالي + خطواتك الجاية */
+import { runChecks } from './check.js';
 import { ST, PM, tShort } from '../store.js';
 import { t, tt } from '../i18n.js';
 import { esc, I, fmt, fmtTime } from '../ui.js';
@@ -46,7 +47,10 @@ export function vHome() {
   const priv = (en.leagues?.classic || []).filter((l) => l.league_type === 'x').sort((x, y) => x.entry_rank / x.rank_count - y.entry_rank / y.rank_count);
   const news = plan ? plan.squad.map(PM).filter((p) => p.news) : [];
   const A = actions(), recent = hist.slice(-10), mx = Math.max(1, ...recent.map((h) => Math.max(h.points, G.events.find((e) => e.id === h.event)?.avg || 0)));
-  return `<section class="hero">
+  let ckBanner = '';
+  try { const C = runChecks(), bad = C.filter((c) => c.lvl === 'bad').length, warn = C.filter((c) => c.lvl === 'warn').length, hrs = G.deadline ? (new Date(G.deadline) - Date.now()) / 36e5 : 99;
+    if (bad || warn || hrs < 48) ckBanner = `<button class="ck-banner ${bad ? 'bad' : warn ? 'warn' : 'ok'}" onclick="go('check')">${I(bad || warn ? 'i-alert' : 'i-check', 'i', 'width:18px;height:18px')}<span><b>${bad ? tt(`${bad} مشاكل بفريقك قبل الإغلاق`, `${bad} issues before deadline`) : warn ? tt(`${warn} تنبيهات تحتاج انتباهك`, `${warn} warnings`) : tt('فريقك جاهز للجولة', 'Team ready')}</b><small>${tt('فحص قبل الإغلاق', 'Deadline check')}${hrs > 0 && hrs < 48 ? ' · ' + tt(`باقي ${Math.floor(hrs)} ساعة`, `${Math.floor(hrs)}h left`) : ''}</small></span>${I('i-chev', 'chev')}</button>`; } catch {}
+  return ckBanner + `<section class="hero">
     <div class="flex between"><div style="min-width:0"><div class="mut" style="font-size:13px">${t('gw')} ${G.cur} ${livePts != null ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}</div><div class="big-num" style="font-size:44px;line-height:1.1"><span class="count" data-v="${gwPts ?? ''}">${gwPts ?? '—'}</span><span class="mut" style="font-size:14px;font-weight:500"> ${tt('نقطة', 'pts')}</span></div>${diff != null ? `<div class="${diff >= 0 ? 'up' : 'down'}" style="font-size:13px">${diff >= 0 ? '+' : ''}${diff} ${tt('عن المعدل', 'vs average')} (${ev.avg})</div>` : ''}</div>
     <button class="btn btn-g btn-sm" onclick="seasonGo(${G.cur})">${tt('تفاصيل', 'Details')}${I('i-chev', 'chev')}</button></div>
     <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div>${(() => { const lr = livePts != null ? liveRankEstimate(livePts, rankImpact(liveCalc(E.picks, G.cur)).safety) : null; return lr ? `<div><small>${tt('الترتيب المباشر (تقدير)', 'Live rank (est.)')}</small><b style="font-size:18px">${fmt(lr.rank)}</b><em class="${lr.move >= 0 ? 'up' : 'down'}"> ${lr.move >= 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em></div>` : `<div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div>`; })()}<div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
