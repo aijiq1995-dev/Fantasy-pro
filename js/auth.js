@@ -80,14 +80,57 @@ function normUser(u) {
   return { uid: u.uid, name: u.displayName || usernameOf(u.email) || (u.email || '').split('@')[0] || 'لاعب', email: isUsernameAccount(u.email) ? '' : (u.email || ''), photo: u.photoURL || '', provider: prov, username: usernameOf(u.email) };
 }
 
+/* ---------- حسابات السيرفر (تشتغل من أي جهاز) ---------- */
+const SRV_TOK = 'fp_srv_token';
+let srvOn = null;
+export async function serverAccounts() {
+  if (srvOn !== null) return srvOn;
+  try { const r = await fetch('/api/account?status=1', { cache: 'no-store' }); srvOn = r.ok && !!(await r.json()).enabled; } catch { srvOn = false; }
+  return srvOn;
+}
+export const srvEnabled = () => srvOn === true;
+export const srvToken = () => { try { return localStorage.getItem(SRV_TOK) || ''; } catch { return ''; } };
+const setSrvToken = (t) => { try { t ? localStorage.setItem(SRV_TOK, t) : localStorage.removeItem(SRV_TOK); } catch {} };
+async function srv(action, body = {}) {
+  const r = await fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, token: srvToken(), ...body }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw { local: d.error || 'خطأ ' + r.status, status: r.status };
+  return d;
+}
+function cacheProfile(uid, p) { try { if (p) localStorage.setItem(localKey(uid), JSON.stringify(p)); } catch {} }
+/** دخول أو تسجيل على السيرفر — يرجّع المستخدم */
+export async function srvAuth(mode, { id, password, name }) {
+  // ينقل رقم الفريق من الحساب المحلي القديم (إذا موجود) حتى ما تعيد الربط
+  let profile;
+  if (mode === 'signup') { try { const key = id.trim().toLowerCase(); profile = JSON.parse(localStorage.getItem(localKey('local_' + key.replace(/[^a-z0-9]/g, '_'))) || 'null') || undefined; } catch {} }
+  const d = await srv(mode, { id, pw: password, name, profile });
+  setSrvToken(d.token); cacheProfile(d.user.uid, d.profile);
+  return d.user;
+}
+/** يرجّع جلسة السيرفر المحفوظة (أو null) */
+export async function srvResume() {
+  if (!srvToken()) return null;
+  try { const d = await srv('me'); cacheProfile(d.user.uid, d.profile); return d.user; }
+  catch (e) { if (e.status === 401) setSrvToken(''); return null; }
+}
+export function srvLogout() { setSrvToken(''); }
+
 /* ---------- الملف الشخصي (رقم الفريق والإعدادات) ---------- */
 const localKey = (uid) => 'fp_profile_' + uid;
 export async function loadProfile(uid) {
+  if (!fb && srvToken()) {
+    try { const d = await srv('me'); cacheProfile(uid, d.profile); return d.profile; }
+    catch (e) { if (e.status === 401) throw e; try { return JSON.parse(localStorage.getItem(localKey(uid)) || 'null'); } catch { return null; } }
+  }
   if (!fb) { try { return JSON.parse(localStorage.getItem(localKey(uid)) || 'null'); } catch { return null; } }
   const snap = await fb.F.getDoc(fb.F.doc(fb.db, 'users', uid));
   return snap.exists() ? snap.data() : null;
 }
 export async function saveProfile(uid, data) {
+  if (!fb && srvToken()) {
+    const cur = JSON.parse(localStorage.getItem(localKey(uid)) || '{}'); cacheProfile(uid, { ...cur, ...data });
+    const d = await srv('save', { data }); cacheProfile(uid, d.profile); return;
+  }
   if (!fb) {
     const cur = (await loadProfile(uid)) || {};
     try { localStorage.setItem(localKey(uid), JSON.stringify({ ...cur, ...data })); } catch {}

@@ -28,7 +28,7 @@ function renderAuth(err = '') {
   const provs = Object.keys(PROV).filter((k) => CONFIG.providers[k]);
   $('#auth').innerHTML = `<div class="auth-box"><div style="display:flex;justify-content:center"><div class="logo-ic">F</div></div><h1>${tt('فانتازي', 'Fantasy')} <span class="gt">${tt('برو', 'Pro')}</span></h1>
    <p class="auth-sub">${tt('منصتك الاحترافية للفانتازي ببيانات حقيقية', 'Your pro fantasy platform with real data')}</p>
-   ${AU.firebaseOn ? '' : `<div class="demo-bar">${tt('وضع التجربة: Firebase غير مربوط — الحسابات على هذا الجهاز فقط', 'Demo mode: Firebase not configured — local accounts only')}</div>`}
+   ${AU.firebaseOn || AU.srvEnabled() ? '' : `<div class="demo-bar">${tt('وضع التجربة: Firebase غير مربوط — الحسابات على هذا الجهاز فقط', 'Demo mode: Firebase not configured — local accounts only')}</div>`}
    ${CONFIG.providers.google ? `<button class="gbtn" data-prov="google">${GOOGLE}${tt('المتابعة باستخدام Google', 'Continue with Google')}</button>` : ''}
    ${provs.length ? `<div class="prov">${provs.map((p) => `<button data-prov="${p}">${PROV[p][1]}${PROV[p][0]}</button>`).join('')}</div>` : ''}
    <div class="or">${tt('أو بالحساب', 'or with account')}</div>
@@ -61,12 +61,18 @@ async function submitAuth(e) {
   const b = $('#aSubmit'); b.disabled = true;
   try {
     if (AU.firebaseOn) { authMode === 'signup' ? await AU.signUp({ id, password: pw, name: ($('#aName')?.value || '').trim() }) : await AU.signIn(id, pw); }
+    else if (await AU.serverAccounts()) {
+      const u = await AU.srvAuth(authMode, { id, password: pw, name: ($('#aName')?.value || '').trim() });
+      onSignedIn(u);
+    }
     else {
       const acc = LS.get('fp_local_accounts', {}), key = id.toLowerCase();
+      // وضع محلي: إذا الحساب مو موجود على هذا الجهاز (مثلاً أيقونة الشاشة الرئيسية تخزينها منفصل عن سفاري) ننشئه تلقائياً
+      if (authMode === 'login' && !acc[key]) authMode = 'signup';
       if (authMode === 'signup') { if (acc[key]) throw { local: tt('الحساب موجود', 'Account exists') }; const salt = Math.random().toString(36).slice(2); acc[key] = { salt, hash: await sha(salt + pw), name: ($('#aName')?.value || '').trim() || key.split('@')[0] }; LS.set('fp_local_accounts', acc); }
       else { if (!acc[key]) throw { local: tt('الحساب غير موجود', 'No such account') }; if ((await sha(acc[key].salt + pw)) !== acc[key].hash) throw { local: tt('كلمة المرور غير صحيحة', 'Wrong password') }; }
       const u = { uid: 'local_' + key.replace(/[^a-z0-9]/g, '_'), name: acc[key].name, email: isEmail ? key : '', provider: 'password', username: isEmail ? '' : key };
-      LS.set('fp_local_session', u); onSignedIn(u);
+      LS.set('fp_local_session', u); authMode = 'login'; onSignedIn(u);
     }
   } catch (ex) { err.textContent = ex.local || AU.authError(ex); b.disabled = false; }
 }
@@ -195,7 +201,7 @@ export function render() {
 window.addEventListener('error', (e) => AU.logError(ST.user?.uid, e.message, e.filename + ':' + e.lineno));
 
 /* ---------- أفعال عامة ---------- */
-async function doLogout() { closeSheet(); LS.del('fp_local_session'); await AU.signOutUser(); Object.assign(ST, { user: null, profile: null, G: null, E: null, plan: null, admin: false }); try { history.replaceState(null, '', ' '); } catch {} renderAuth(); }
+async function doLogout() { closeSheet(); LS.del('fp_local_session'); AU.srvLogout(); await AU.signOutUser(); Object.assign(ST, { user: null, profile: null, G: null, E: null, plan: null, admin: false }); try { history.replaceState(null, '', ' '); } catch {} renderAuth(); }
 function toggleLang() { setLang(lang() === 'ar' ? 'en' : 'ar'); if (ST.user) AU.saveProfile(ST.user.uid, { lang: lang() }).catch(() => {}); if (ST.G) { buildNav(); go(ST.view); } else renderAuth(); }
 Object.assign(window, { go, render, closeSheet, doLogout, toggleLang, loadAll, changeTeam: () => renderLink(String(ST.profile?.teamId || '')), cancelLink: () => (ST.G ? show('#app') : loadAll()) });
 
@@ -205,5 +211,11 @@ Object.assign(window, { go, render, closeSheet, doLogout, toggleLang, loadAll, c
   if (AU.firebaseOn) {
     try { let first = true; await AU.watchAuth((u, err) => { if (err) return renderAuth(AU.authError(err)); if (u) { if (!ST.user || ST.user.uid !== u.uid) onSignedIn(u); } else if (first || ST.user) { ST.user = null; renderAuth(); } first = false; }); }
     catch { splash(tt('تعذّر تحميل Firebase — تأكد من الإنترنت وإعدادات js/config.js', 'Could not load Firebase')); }
-  } else { const s = LS.get('fp_local_session'); s ? onSignedIn(s) : renderAuth(); }
+  } else {
+    try { navigator.storage?.persist?.(); } catch {}
+    await AU.serverAccounts();
+    const su = await AU.srvResume();
+    if (su) return onSignedIn(su);
+    const s = LS.get('fp_local_session'); s ? onSignedIn(s) : renderAuth();
+  }
 })();
