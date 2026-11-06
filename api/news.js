@@ -88,9 +88,26 @@ async function translate(items) {
   }
 }
 
-let memo = null;
+let memo = null, memoF = null;
+const fplList = (boot) => {
+  const T = Object.fromEntries((boot?.teams || []).map((t) => [t.id, t.short_name]));
+  return (boot?.elements || []).filter((e) => e.news && e.news_added && Date.now() - Date.parse(e.news_added) < 30 * 864e5)
+    .map((e) => ({ id: e.id, name: e.web_name, team: T[e.team] || '', pos: e.element_type, st: e.status, chance: e.chance_of_playing_next_round, news: e.news, newsAr: newsAr(e.news), at: Date.parse(e.news_added), own: +e.selected_by_percent || 0 }))
+    .sort((a, b) => b.at - a.at).slice(0, 250);
+};
 export default async function handler(req, res) {
-  const send = (code, obj, ttl = 0) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', ttl ? `public, s-maxage=${ttl}, stale-while-revalidate=300` : 'no-store'); res.end(JSON.stringify(obj)); };
+  const send = (code, obj, ttl = 0) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', ttl ? `public, s-maxage=${ttl}, stale-while-revalidate=${Math.min(ttl * 2, 300)}` : 'no-store'); res.end(JSON.stringify(obj)); };
+  const only = new URL(req.url, 'http://x').searchParams.get('src');
+  // أخبار الفانتازي الرسمية لوحدها — سريعة ومحدّثة كل دقيقة
+  if (only === 'fpl') {
+    if (process.env.FPL_MOCK === '1') { const m = await mockNews(); return send(200, { at: m.at, fpl: m.fpl }, 0); }
+    if (memoF && Date.now() - memoF.t < 40e3) return send(200, memoF.d, 45);
+    try {
+      const boot = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/', { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : Promise.reject(new Error('FPL ' + r.status))));
+      const d = { at: Date.now(), fpl: fplList(boot) }; memoF = { t: Date.now(), d };
+      return send(200, d, 45);
+    } catch (e) { return memoF ? send(200, memoF.d, 20) : send(502, { error: e.message }); }
+  }
   if (memo && Date.now() - memo.t < 90e3) return send(200, memo.d, 120);
   try {
     if (process.env.FPL_MOCK === '1') return send(200, await mockNews(), 0);
@@ -98,10 +115,7 @@ export default async function handler(req, res) {
       fetch('https://fantasy.premierleague.com/api/bootstrap-static/', { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetchFeeds().catch(() => ({ items: [], ok: [] })),
     ]);
-    const els = boot?.elements || [], T = Object.fromEntries((boot?.teams || []).map((t) => [t.id, t.short_name]));
-    const fpl = els.filter((e) => e.news && e.news_added && Date.now() - Date.parse(e.news_added) < 21 * 864e5)
-      .map((e) => ({ id: e.id, name: e.web_name, team: T[e.team] || '', pos: e.element_type, st: e.status, chance: e.chance_of_playing_next_round, news: e.news, newsAr: newsAr(e.news), at: Date.parse(e.news_added), own: +e.selected_by_percent || 0 }))
-      .sort((a, b) => b.at - a.at).slice(0, 160);
+    const els = boot?.elements || [], fpl = fplList(boot);
     mentions(feeds.items, els);
     await translate(feeds.items.filter((x) => x.cat !== 'other').concat(feeds.items.filter((x) => x.cat === 'other')).slice(0, 40));
     const d = { at: Date.now(), fpl, feed: feeds.items, sources: feeds.ok };

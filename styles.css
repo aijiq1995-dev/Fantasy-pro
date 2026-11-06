@@ -607,3 +607,9 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .nw-ps .mini-sh{width:20px;height:20px}
 .icon-btn.spin svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.nw-mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;background:var(--s2);padding:4px;border-radius:14px}
+.nw-mode button{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 6px;border-radius:11px;font-size:13.5px;font-weight:600;color:var(--mut);background:none;border:0}
+.nw-mode button.on{background:var(--acc);color:var(--on-acc)}
+.nw-mode small{font-family:Inter,sans-serif;font-size:11px;background:rgba(0,0,0,.18);padding:1px 6px;border-radius:99px}
+.nw-mine{margin-top:12px;border-color:rgba(251,191,36,.35)}
+.nw-mine.ok{border-color:rgba(52,211,153,.35)}
