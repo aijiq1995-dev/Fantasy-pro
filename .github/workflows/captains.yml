@@ -1,0 +1,31 @@
+name: captains-top10k
+# كل ساعة: إذا الجولة الحالية سكّرت وما انحسبت كبتنة أفضل 10,000 بعد، يحسبها ويحفظها بالمستودع
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      gw: { description: 'Gameweek (اختياري)', required: false }
+      force: { description: 'Recompute', required: false }
+permissions:
+  contents: write
+concurrency: { group: captains, cancel-in-progress: false }
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Compute top 10k captaincy
+        env:
+          GW: ${{ github.event.inputs.gw }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node scripts/captains10k.mjs
+      - name: Commit result
+        run: |
+          git config user.name "fantasy-pro-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/captains || true
+          if ! git diff --cached --quiet; then git commit -m "Captaincy top 10k update" && git push; else echo "no changes"; fi

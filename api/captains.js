@@ -2,7 +2,8 @@
    /api/captains?gw=10&src=top|league&id=123&fin=1
    نسبة الكبتنة لكل لاعب بجولة معيّنة — محسوبة من عيّنة حقيقية:
    - top: أفضل 100 مدرب بالترتيب العام (الدوري العام 314)
-   - league: كل فرق دوري خاص (لحد 50 فريق)
+   - league/h2h: كل فرق الدوري (لحد 200 فريق) + أسماء اللي اختاروا كل كابتن
+   - أفضل 10,000 عالمياً تنحسب بـ GitHub Actions (scripts/captains10k.mjs) وتنحفظ بـ /data/captains/
    الفانتازي ما ينشر نسب الكبتنة الكاملة، فهذي عيّنة موضّحة الحجم.
 ========================================================= */
 export const config = { maxDuration: 60 };
@@ -34,19 +35,25 @@ export default async function handler(req, res) {
   const hit = memo.get(key); if (hit && Date.now() - hit.t < ttl * 1000) return send(res, 200, hit.d, ttl);
 
   try {
-    let entries = [], label = '';
+    let entries = [], label = ''; const names = {};
     if (src === 'top') {
       for (const page of [1, 2]) { const d = await get('leagues-classic/314/standings/', page > 1 ? { page_standings: page } : {}); entries.push(...(d.standings?.results || []).map((r) => r.entry)); label = 'top100'; }
     } else {
-      const d = await get(`${src === 'h2h' ? 'leagues-h2h' : 'leagues-classic'}/${id}/standings/`); entries = (d.standings?.results || []).map((r) => r.entry).slice(0, 50); label = d.league?.name || '';
+      const path = `${src === 'h2h' ? 'leagues-h2h' : 'leagues-classic'}/${id}/standings/`;
+      for (let page = 1; page <= 4; page++) {
+        const d = await get(path, page > 1 ? { page_standings: page } : {}); label = d.league?.name || label;
+        (d.standings?.results || []).forEach((r) => { entries.push(r.entry); names[r.entry] = [r.entry_name, r.player_name, r.rank]; });
+        if (!d.standings?.has_next) break;
+      }
     }
-    entries = [...new Set(entries)].slice(0, 100);
-    const cap = {}, vice = {}, tc = {}; let n = 0, chips = {};
+    entries = [...new Set(entries)].slice(0, src === 'top' ? 100 : 200);
+    const cap = {}, vice = {}, tc = {}, who = {}; let n = 0, chips = {};
     for (let i = 0; i < entries.length; i += 10) {
       const part = await Promise.all(entries.slice(i, i + 10).map((e) => get(`entry/${e}/event/${gw}/picks/`).catch(() => null)));
-      part.forEach((pk) => {
+      part.forEach((pk, j) => {
         if (!pk?.picks) return; n++;
-        const c = pk.picks.find((x) => x.is_captain), v = pk.picks.find((x) => x.is_vice_captain);
+        const e = entries[i + j], c = pk.picks.find((x) => x.is_captain), v = pk.picks.find((x) => x.is_vice_captain);
+        if (c && src !== 'top' && names[e]) (who[c.element] = who[c.element] || []).push({ e, n: names[e][0], m: names[e][1], r: names[e][2], tc: pk.active_chip === '3xc' ? 1 : 0 });
         if (c) { cap[c.element] = (cap[c.element] || 0) + 1; if (pk.active_chip === '3xc') tc[c.element] = (tc[c.element] || 0) + 1; }
         if (v) vice[v.element] = (vice[v.element] || 0) + 1;
         if (pk.active_chip) chips[pk.active_chip] = (chips[pk.active_chip] || 0) + 1;
@@ -54,7 +61,7 @@ export default async function handler(req, res) {
     }
     if (!n) return send(res, 404, { error: 'تشكيلات هذي الجولة ما متاحة بعد (تنكشف بعد الإغلاق)' });
     const ids = [...new Set([...Object.keys(cap), ...Object.keys(vice)])].map(Number);
-    const players = ids.map((pid) => ({ id: pid, c: cap[pid] || 0, pct: Math.round(((cap[pid] || 0) / n) * 1000) / 10, vc: Math.round(((vice[pid] || 0) / n) * 1000) / 10, tc: tc[pid] || 0 }))
+    const players = ids.map((pid) => ({ id: pid, c: cap[pid] || 0, pct: Math.round(((cap[pid] || 0) / n) * 1000) / 10, vc: Math.round(((vice[pid] || 0) / n) * 1000) / 10, tc: tc[pid] || 0, ...(who[pid] ? { who: who[pid].sort((a, b) => a.r - b.r) } : {}) }))
       .sort((a, b) => b.c - a.c || b.vc - a.vc);
     const d = { gw, src, label, sample: n, players, chips, computedAt: Date.now() };
     memo.set(key, { t: Date.now(), d });
