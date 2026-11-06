@@ -16,7 +16,7 @@ export function vSearch() {
   return `<div class="omni">
    <form class="searchbox" onsubmit="event.preventDefault();omniAsk()" role="search"><span class="sicon">${I('i-sparkle')}</span><input id="oq" type="search" value="${esc(Q)}" placeholder="${tt('ابحث عن لاعب، نادي، جولة… أو اسأل أي سؤال', 'Search players, clubs, gameweeks… or ask anything')}" autocomplete="off" enterkeyhint="search" aria-label="search">${Q ? `<button type="button" class="sclear" onclick="omniClear()" aria-label="clear">${I('i-x', 'i', 'width:16px;height:16px')}</button>` : ''}<button class="btn btn-p btn-sm" style="margin-inline-start:4px" aria-label="ask">${I('i-send', 'i', 'width:17px;height:17px')}</button></form>
    ${A.q ? ansBox() : ''}
-   ${r ? results(r) : idle()}
+   <div id="omniRes">${r ? results(r) : idle()}</div>
   </div>`;
 }
 function ansBox() {
@@ -51,7 +51,16 @@ let tmr;
 export function afterSearch() {
   const i = document.getElementById('oq'); if (!i) return;
   if (!A.q && !Q) setTimeout(() => i.focus(), 60);
-  i.oninput = () => { clearTimeout(tmr); tmr = setTimeout(() => { Q = i.value; R = Q.trim() ? parseQuery(Q) : null; const pos = i.selectionStart; window.render(); const n = document.getElementById('oq'); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} }, 160); };
+  i.oninput = () => {
+    clearTimeout(tmr);
+    const hadQ = !!Q;
+    tmr = setTimeout(() => {
+      Q = i.value; R = Q.trim() ? parseQuery(Q) : null;
+      const box = document.getElementById('omniRes'); if (box) box.innerHTML = R ? results(R) : idle();
+      const clr = i.parentElement.querySelector('.sclear'); if (clr) clr.style.display = Q ? '' : 'none';
+      if (!hadQ && Q && !clr) { const b = document.createElement('button'); b.type = 'button'; b.className = 'sclear'; b.setAttribute('aria-label', 'clear'); b.onclick = () => window.omniClear(); b.innerHTML = I('i-x', 'i', 'width:16px;height:16px'); i.after(b); }
+    }, 90);
+  };
 }
 async function run(q, follow = false) {
   if (!q || A.busy) return; addRecent(q);

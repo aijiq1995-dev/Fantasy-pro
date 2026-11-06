@@ -24,6 +24,7 @@ const SORTW = [
 const VIEWW = [[['سعر', 'اسعار', 'صعود', 'نزول', 'price'], 'prices'], [['تشكيل', 'ملعب', 'فريقي', 'lineup', 'team'], 'team'], [['جوله', 'جولات', 'gameweek', 'gw', 'موسم'], 'season'], [['مباشر', 'live', 'نتائج'], 'live'], [['دوري', 'دوريات', 'ترتيب', 'league'], 'leagues'], [['ورق', 'اوراق', 'chip', 'وايلد', 'بنش', 'فري هيت', 'كابتن ثلاثي'], 'chips'], [['انتقال', 'سوق', 'transfer', 'market'], 'market'], [['مختبر', 'قرار', 'lab', 'hit', 'خصم'], 'lab'], [['تحليل', 'احصاء', 'stats', 'analytics'], 'stats'], [['مقارنه', 'compare'], 'compare'], [['اشعار', 'notif'], 'notifs'], [['اعداد', 'settings'], 'settings']];
 const has = (q, words) => words.some((w) => q.includes(norm(w)));
 
+let NC = null;
 /** يفهم البحث محلياً: لاعبين، أندية، جولات، أقسام، وفلاتر ذكية (مركز/سعر/ترتيب/نادي) */
 export function parseQuery(raw) {
   const G = ST.G, q = norm(raw); if (!q) return null;
@@ -36,7 +37,8 @@ export function parseQuery(raw) {
   const club = teams.find((tm) => q.includes(norm(tm.name)) || q.split(' ').includes(tm.short.toLowerCase()) || (CLUB_AR[tm.short] && q.includes(norm(CLUB_AR[tm.short]))));
   const view = (VIEWW.find(([w]) => has(q, w)) || [])[1] || null;
   const words = qq.split(' ').filter((w) => w.length > 1);
-  const nameHits = G.players.map((p) => { const n = norm(p.full + ' ' + p.name); let s = 0; if (norm(p.name) === qq) s = 100; else if (n.includes(qq)) s = 60; else s = words.filter((w) => n.includes(w)).length * 20; return [p, s + Math.min(10, p.total / 20)]; }).filter((x) => x[1] >= 20).sort((a, b) => b[1] - a[1]).slice(0, 6).map((x) => x[0]);
+  if (!NC || NC.t !== G.fetchedAt) NC = { t: G.fetchedAt, m: new Map(G.players.map((p) => [p.id, [norm(p.full + ' ' + p.name), norm(p.name)]])) };
+  const nameHits = G.players.map((p) => { const [n, nn] = NC.m.get(p.id) || [norm(p.full + ' ' + p.name), norm(p.name)]; let s = 0; if (nn === qq) s = 100; else if (n.includes(qq)) s = 60; else s = words.filter((w) => n.includes(w)).length * 20; return [p, s + Math.min(10, p.total / 20)]; }).filter((x) => x[1] >= 20).sort((a, b) => b[1] - a[1]).slice(0, 6).map((x) => x[0]);
   let smart = null;
   if (pos || maxPrice || sort || club) {
     let L = G.players.filter((p) => (!pos || p.pos === pos) && (!maxPrice || p.price <= maxPrice) && (!club || p.team === club.id) && p.st !== 'u');

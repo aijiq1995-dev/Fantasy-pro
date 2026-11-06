@@ -31,13 +31,13 @@ export function vPlayers() {
    <div class="grid g3" style="margin-bottom:8px"><select id="pt" class="sel">${`<option value="ALL">${tt('كل الأندية', 'All clubs')}</option>` + teams.map((x) => `<option value="${x.id}" ${+F.team === x.id ? 'selected' : ''}>${tName(x.id)}</option>`).join('')}</select>
     <select id="pm" class="sel">${[16, 12, 10, 8, 7, 6.5, 6, 5.5, 5, 4.5].map((v) => `<option value="${v}" ${F.max == v ? 'selected' : ''}>${t('maxPrice')} ${v}م</option>`).join('')}</select>
     <select id="ps" class="sel">${SORTS().map((s) => `<option value="${s[0]}" ${F.sort === s[0] ? 'selected' : ''}>${t('sortBy')}: ${s[1]}</option>`).join('')}</select></div>
-   <div class="mut" style="font-size:12px;margin:2px 2px 8px">${fmt(L.length)} ${tt('لاعب', 'players')}</div>
+   <div id="plRes"><div class="mut" style="font-size:12px;margin:2px 2px 8px">${fmt(L.length)} ${tt('لاعب', 'players')}</div>
    ${shown.map((p) => playerRow(p, `<div class="col">${spark([p.ppg, p.form, xp(p)].map(Number))}<small>${F.sort === 'price' || F.sort === 'cc' ? p.price.toFixed(1) + 'م' : F.sort === 'own' ? p.own + '%' : F.sort === 'xgi' ? p.xgi.toFixed(1) : F.sort === 'form' ? p.form : F.sort === 'xp' ? xpN(p, ST.G.next, 3) : F.sort === 'fix' ? avgFdr(p.team, ST.G.next, 5).toFixed(1) : F.sort === 'min' ? fmt(p.min) : F.sort === 'trend' ? '+' + fmt(Math.round((p.tin - p.tout) / 1000)) + 'k' : p.total + ' ' + t('points')}</small></div><button class="icon-btn star ${ST.watch.has(p.id) ? 'on' : ''}" onclick="event.stopPropagation();toggleWatch(${p.id})">${I('i-star')}</button>`)).join('') || `<div class="empty">${I('i-search', 'i', 'width:40px;height:40px')}<b>${tt('ما في نتائج', 'No results')}</b></div>`}
-   ${L.length > shown.length ? `<button class="btn btn-g btn-b" onclick="pf('page',${F.page + 1})">${tt('عرض المزيد', 'Show more')} (${L.length - shown.length})</button>` : ''}`;
+   ${L.length > shown.length ? `<button class="btn btn-g btn-b" onclick="pf('page',${F.page + 1})">${tt('عرض المزيد', 'Show more')} (${L.length - shown.length})</button>` : ''}</div>`;
 }
 export function afterPlayers() {
   const q = document.getElementById('pq'); let tm;
-  q.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { F.q = q.value; F.page = 1; const pos = q.selectionStart; window.render(); const n = document.getElementById('pq'); n.focus(); n.setSelectionRange(pos, pos); }, 200); };
+  q.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { F.q = q.value; F.page = 1; const tmp = document.createElement('div'); tmp.innerHTML = vPlayers(); const n = tmp.querySelector('#plRes'), o = document.getElementById('plRes'); if (n && o) o.innerHTML = n.innerHTML; }, 120); };
   document.getElementById('pt').onchange = (e) => window.pf('team', e.target.value);
   document.getElementById('pm').onchange = (e) => window.pf('max', +e.target.value);
   document.getElementById('ps').onchange = (e) => window.pf('sort', e.target.value);
