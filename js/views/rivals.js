@@ -12,7 +12,7 @@ import { liveCalc } from '../live-engine.js';
 import { xp } from '../engine.js';
 import { pShirt } from './common.js';
 
-let sel = null, S = {}, busy = false;
+let sel = null, S = {}, busy = false, lastRefresh = 0;
 const CHIP = { wildcard: tt('وايلد كارد', 'Wildcard'), freehit: tt('فري هت', 'Free Hit'), bboost: tt('بنش بوست', 'Bench Boost'), '3xc': tt('تريبل كابتن', 'Triple Captain'), manager: tt('المدرب', 'Manager') };
 function leagues() {
   const c = (ST.E.entry.leagues?.classic || []).filter((l) => l.league_type === 'x').map((l) => ({ id: l.id, name: l.name, kind: 'c', rank: l.entry_rank, n: l.rank_count }));
@@ -40,7 +40,9 @@ async function load(L) {
     } else {
       const d = await FPL.loadH2H(L.id); table = d.standings?.results || [];
       members = table.slice(0, 24).map((r) => ({ entry: r.entry, name: r.entry_name, mgr: r.player_name, rank: r.rank, total: r.total, pf: r.points_for, w: r.matches_won, dr: r.matches_drawn, l: r.matches_lost }));
-      try { const m = await FPL.loadH2HMatches(L.id, gw); const mm = (m.results || []).find((x) => x.entry_1_entry === me || x.entry_2_entry === me); if (mm) opp = mm.entry_1_entry === me ? mm.entry_2_entry : mm.entry_1_entry; } catch {}
+      const oppOf = async (g) => { try { const m = await FPL.loadH2HMatches(L.id, g); const mm = (m.results || []).find((x) => x.entry_1_entry === me || x.entry_2_entry === me); return mm ? (mm.entry_1_entry === me ? mm.entry_2_entry : mm.entry_1_entry) : null; } catch { return null; } };
+      if (gwStarted()) opp = await oppOf(gw);
+      var nextOpp = ST.G.next && ST.G.next !== gw ? await oppOf(ST.G.next) : null;
       if (!members.some((x) => x.entry === me)) members.push({ entry: me, name: ST.E.entry.name, rank: L.rank });
     }
     // تشكيلات + انتقالات الجولة
@@ -48,7 +50,7 @@ async function load(L) {
       try { m.picks = await FPL.fetchPicks(m.entry, gw); m.calc = liveCalc(m.picks, gw); } catch { m.picks = null; }
       if (m.entry !== me) { try { const tr = await FPL.fetchTransfers(m.entry); m.tr = (Array.isArray(tr) ? tr : []).filter((x) => x.event === gw); } catch { m.tr = []; } }
     });
-    S = { L, members, opp, table, gw, at: Date.now() };
+    S = { L, members, opp, nextOpp: typeof nextOpp !== 'undefined' ? nextOpp : null, table, gw, at: Date.now() };
     if (L.kind === 'c') simSeason(members).catch(() => {});
   } catch (e) { S = { L, err: e.message }; }
   busy = false; if (ST.view === 'rivals') window.render();
@@ -98,9 +100,9 @@ function rivalCard(m, me, i) {
   const isMe = m.entry === ST.profile.teamId, cap = m.picks?.picks.find((p) => p.is_captain), capP = cap && PM(cap.element);
   const live = m.calc?.total ?? m.gwPts ?? null, gap = !isMe && me?.calc && m.calc ? m.calc.total - me.calc.total : null;
   const hit = m.picks?.entry_history?.event_transfers_cost || 0;
-  return `<div class="rv-c ${isMe ? 'me' : ''} ${m.entry === S.opp ? 'opp' : ''}" style="--d:${Math.min(i, 14) * 35}ms" onclick="rvOpen(${m.entry})">
+  return `<div class="rv-c ${isMe ? 'me' : ''} ${m.entry === S.opp ? 'opp' : m.entry === S.nextOpp ? 'nopp' : ''}" style="--d:${Math.min(i, 14) * 35}ms" onclick="rvOpen(${m.entry})">
    <div class="rv-rank">${m.rank ?? '—'}</div>
-   <div style="flex:1;min-width:0"><div class="flex" style="gap:6px;flex-wrap:wrap;align-items:center"><b class="rv-name">${esc(m.name)}</b>${isMe ? `<span class="tag lime" style="font-size:10.5px">${tt('إنت', 'You')}</span>` : ''}${m.entry === S.opp ? `<span class="tag" style="background:rgba(239,68,68,.15);color:var(--bad);font-size:10.5px">${tt('خصمك هالأسبوع', 'Your opponent')}</span>` : ''}${chipTag(m.picks?.active_chip)}</div>
+   <div style="flex:1;min-width:0"><div class="flex" style="gap:6px;flex-wrap:wrap;align-items:center"><b class="rv-name">${esc(m.name)}</b>${isMe ? `<span class="tag lime" style="font-size:10.5px">${tt('إنت', 'You')}</span>` : ''}${m.entry === S.opp ? `<span class="tag" style="background:rgba(239,68,68,.15);color:var(--bad);font-size:10.5px">${tt(`خصمك بالجولة ${S.gw}`, `Opponent GW${S.gw}`)}</span>` : ''}${m.entry === S.nextOpp ? `<span class="tag" style="background:rgba(251,146,60,.16);color:#FB923C;font-size:10.5px">${tt(`خصمك الجاي (ج${ST.G.next})`, `Next opponent (GW${ST.G.next})`)}</span>` : ''}${chipTag(m.picks?.active_chip)}</div>
     <div class="mut" style="font-size:12px;margin-top:2px">${capP ? `${I('i-crown', 'i', 'width:12px;height:12px;vertical-align:-2px;color:var(--gold)')} ${esc(capP.name)} (${(ST.live?.[capP.id]?.total_points ?? 0) * (cap.multiplier || 2)})` : tt('التشكيلة تنكشف بعد الإغلاق', 'Hidden until deadline')}${!isMe && m.tr?.length ? ` · ${I('i-swap', 'i', 'width:12px;height:12px;vertical-align:-2px')} ${m.tr.length}${hit ? ` <span class="down">(−${hit})</span>` : ''}` : ''}</div>
     ${!isMe && m.tr?.length ? `<div class="rv-tr">${m.tr.slice(0, 3).map((x) => `<span><b class="up">${esc(PM(x.element_in)?.name || '?')}</b> ← <s class="mut">${esc(PM(x.element_out)?.name || '?')}</s></span>`).join('')}</div>` : ''}</div>
    <div class="rv-pts"><b class="num">${live ?? '—'}</b><small>${tt('الجولة', 'GW')}</small>${gap != null ? `<span class="${gap > 0 ? 'down' : gap < 0 ? 'up' : 'mut'}" style="font-size:11px">${gap > 0 ? '+' + gap : gap}</span>` : ''}</div></div>`;
@@ -110,19 +112,28 @@ export function vRivals() {
   const Ls = leagues();
   if (!Ls.length) return `<div class="empty">${I('i-users', 'i', 'width:40px;height:40px')}<b>${tt('ما مشترك بأي دوري خاص', 'No private leagues')}</b></div>`;
   if (!sel) sel = Ls[0];
+  // بدت جولة جديدة؟ نحدّث بيانات الجولة ونعيد التحميل حتى ينتقل الأحمر لخصمك الجديد
+  const nx = ST.G.events.find((e) => e.id === ST.G.next);
+  if (nx && new Date(nx.deadline) < new Date() && Date.now() - lastRefresh > 60e3) { lastRefresh = Date.now(); window.loadAll?.(true).then(() => { S = {}; if (ST.view === 'rivals') window.render(); }); }
+  if (S.gw && S.gw !== ST.G.cur && !busy) S = {};
   if (!S.L || S.L.id !== sel.id) { if (!busy) load(sel); }
   const picker = `<div class="rv-lgs">${Ls.map((l) => `<button class="${sel.id === l.id ? 'on' : ''}" onclick="rvSel(${l.id},'${l.kind}')">${I(l.kind === 'h' ? 'i-swords' : 'i-trophy', 'i', 'width:14px;height:14px')}<span>${esc(l.name)}</span><small>${l.kind === 'h' ? 'H2H' : '#' + (l.rank ?? '—')}</small></button>`).join('')}</div>`;
   if (busy || !S.members) return picker + (S.err ? `<div class="card mut" style="margin-top:12px">${esc(S.err)}</div>` : `<div class="card aiload" style="margin-top:12px"><i></i><i></i><i></i><span>${tt('جارِ جلب تشكيلات منافسينك…', 'Fetching rivals’ teams…')}</span></div>`);
   const meE = ST.profile.teamId, me = S.members.find((m) => m.entry === meE), started = gwStarted();
   const T = threats(S.members, meE);
   let top = '';
-  if (sel.kind === 'h' && S.opp) {
+  const curFin = !!ST.G.events.find((e) => e.id === S.gw)?.fin;
+  if (sel.kind === 'h' && S.opp && !(curFin && S.nextOpp)) {
     const o = S.members.find((m) => m.entry === S.opp);
     if (o && me?.calc && o.calc) {
       const a = remainingXP(me), b = remainingXP(o), mu = me.calc.total + a.exp - (o.calc.total + b.exp), sd = Math.max(1.5, Math.sqrt((a.n + b.n) * 16));
       const pw = Math.round(Phi(mu / sd) * 100);
       top = `<div class="card rv-h2h"><div class="mut" style="font-size:12px;text-align:center">${tt(`مواجهتك بالجولة ${S.gw}`, `Your GW${S.gw} match`)}</div><div class="rv-vs"><div><b>${tt('إنت', 'You')}</b><span class="num big-num">${me.calc.total}</span></div><div class="rv-prob" style="--p:${pw}"><b>${pw}%</b><small>${tt('احتمال فوزك', 'Win chance')}</small></div><div><b>${esc(o.name)}</b><span class="num big-num">${o.calc.total}</span></div></div><div class="mut" style="font-size:11.5px;text-align:center">${tt(`متبقي متوقع: إنت +${a.exp.toFixed(1)} · هو +${b.exp.toFixed(1)}`, `Remaining xP: you +${a.exp.toFixed(1)} · them +${b.exp.toFixed(1)}`)}</div><button class="btn btn-g btn-b" style="margin-top:10px" onclick="rvOpen(${o.entry})">${I('i-pitch', 'i', 'width:16px;height:16px')}${tt('شوف تشكيلته والفروقات', 'See lineup & differentials')}</button></div>`;
     }
+  }
+  if (sel.kind === 'h' && S.nextOpp && !top) {
+    const o = S.members.find((m) => m.entry === S.nextOpp);
+    if (o) top = `<div class="card rv-h2h" style="border-color:rgba(251,146,60,.4)"><div class="mut" style="font-size:12px;text-align:center">${tt(`مواجهتك الجاية · الجولة ${ST.G.next}`, `Next match · GW${ST.G.next}`)}</div><div class="rv-vs"><div><b>${tt('إنت', 'You')}</b><span class="num big-num">${me?.rank ?? '—'}</span><small class="mut">${tt('ترتيبك', 'rank')}</small></div><div class="mut" style="font-size:20px;font-weight:700">VS</div><div><b>${esc(o.name)}</b><span class="num big-num">${o.rank ?? '—'}</span><small class="mut">${tt('ترتيبه', 'rank')} · ${o.w ?? 0}-${o.dr ?? 0}-${o.l ?? 0}</small></div></div><div class="mut" style="font-size:11.5px;text-align:center">${tt('تشكيلته للجولة الجاية تنكشف بعد الإغلاق — هسة تگدر تشوف تشكيلته الحالية', 'Their next lineup appears after the deadline')}</div><button class="btn btn-g btn-b" style="margin-top:10px" onclick="rvOpen(${o.entry})">${I('i-pitch', 'i', 'width:16px;height:16px')}${tt('شوف تشكيلته الحالية', 'See current lineup')}</button></div>`;
   }
   if (sel.kind === 'c') top = S.sim ? `<div class="card"><b style="font-size:14px">${I('i-trophy', 'i', 'width:16px;height:16px;vertical-align:-3px;color:var(--gold)')} ${tt('نسبة الفوز بالدوري', 'Chance to win the league')}</b><span class="mut" style="font-size:11.5px"> · ${tt(`محاكاة ${S.sim.R} جولة متبقية`, `${S.sim.R} GWs simulated`)}</span>
      <div class="rv-sim">${S.sim.top.slice(0, 6).map((m) => `<div class="${m.entry === meE ? 'me' : ''}"><span>${esc(m.name)}</span><div class="dc-bar"><i style="width:${Math.max(2, m.win)}%;background:${m.entry === meE ? 'var(--acc)' : '#60A5FA'}"></i></div><b class="num">${m.win < 1 && m.win > 0 ? '<1' : Math.round(m.win)}%</b></div>`).join('')}</div>

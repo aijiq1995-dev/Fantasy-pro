@@ -679,3 +679,4 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .ck-banner.bad{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)}.ck-banner.bad>svg:first-child{color:var(--bad)}
 .ck-banner.warn{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.07)}.ck-banner.warn>svg:first-child{color:var(--gold)}
 .ck-banner.ok{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07)}.ck-banner.ok>svg:first-child{color:var(--acc)}
+.rv-c.nopp{border-color:rgba(251,146,60,.45)}
