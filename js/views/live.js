@@ -50,9 +50,9 @@ export function freshness() {
 }
 export function startLivePolling() {
   clearInterval(poll); clearInterval(freshT); lastFetch = lastFetch || Date.now(); idleAt = Date.now();
-  const step = () => { if (!ST.G || document.hidden || FPL.staleState.on) return; /* وقت تحديث الفانتازي: التحديث بالمواعيد المحددة بس */ if (liveMode()) { if (Date.now() - lastFetch >= 28e3) refreshLive(true); } else if (Date.now() - idleAt >= 2 * 60e3) idleRefresh(); };
+  const step = () => { if (!ST.G || document.hidden) return; if (liveMode()) { if (Date.now() - lastFetch >= 28e3) refreshLive(true); } else if (Date.now() - idleAt >= 2 * 60e3) idleRefresh(); };
   poll = setInterval(step, 5000); freshT = setInterval(freshness, 5000); freshness();
-  if (!window.__visBound) { window.__visBound = 1; document.addEventListener('visibilitychange', () => { if (!document.hidden && ST.G && !FPL.staleState.on) { if (liveMode()) refreshLive(true); else if (Date.now() - idleAt > 20e3) idleRefresh(); } }); }
+  if (!window.__visBound) { window.__visBound = 1; document.addEventListener('visibilitychange', () => { if (!document.hidden && ST.G) { if (liveMode()) refreshLive(true); else if (Date.now() - idleAt > 20e3) idleRefresh(); } }); }
   if (liveMode()) refreshLive(true);
 }
 

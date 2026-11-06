@@ -120,7 +120,7 @@ function retryDelay() {
     if (tgt) return tgt - now;
     return 10 * 6e4;
   }
-  return 5 * 6e4; // عطل بوقت ثاني (مو إغلاق)
+  return 60e3; // عطل بوقت ثاني (مو إغلاق): نفس السابق كل دقيقة
 }
 function scheduleRetry() { clearTimeout(staleT); const d = retryDelay(); nextRetryAt = Date.now() + d; staleT = setTimeout(() => loadAll(true), d); }
 function staleBar() {
@@ -150,7 +150,7 @@ export async function loadAll(fresh = false) {
   } catch (ex) {
     document.body.classList.remove('busy');
     if (silent) { FPL.staleState.on = true; scheduleRetry(); staleBar(); return; }
-    autoRetryT = setTimeout(() => loadAll(true), Math.min(retryDelay(), 5 * 6e4));
+    autoRetryT = setTimeout(() => loadAll(true), Math.min(retryDelay(), 60e3));
     AU.logError(ST.user?.uid, ex.message, 'loadAll');
     splash(`${esc(ex.message)}<br><button class="btn btn-p btn-sm" style="margin-top:12px" onclick="loadAll(true)">${tt('إعادة المحاولة', 'Retry')}</button> <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="changeTeam()">${tt('تغيير رقم الفريق', 'Change Team ID')}</button>`);
   }
