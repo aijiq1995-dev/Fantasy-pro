@@ -736,3 +736,5 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .stale-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#FBBF24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:99px;padding:1px 8px;margin-inline-start:4px;font-family:inherit;cursor:pointer;white-space:nowrap}
 .stale-tag i{width:6px;height:6px;border-radius:50%;background:#FBBF24;animation:nwPulse 1.6s infinite}
 .stale-tag.hidden{display:none}
+.fresh.stale{color:#FBBF24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:99px;padding:0 8px;cursor:pointer}
+.fresh.stale i{background:#FBBF24;animation:nwPulse 1.6s infinite}

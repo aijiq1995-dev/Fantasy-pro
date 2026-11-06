@@ -44,6 +44,7 @@ export function freshness() {
   const embed = window.__EMBED?.label?.();
   const lm = liveMode(), ts = lm ? lastFetch || ST.G.fetchedAt : Math.max(idleAt, ST.G.fetchedAt), s = Math.round((Date.now() - ts) / 1000);
   const ago = s < 60 ? tt(`قبل ${s} ث`, `${s}s ago`) : s < 3600 ? tt(`قبل ${Math.round(s / 60)} د`, `${Math.round(s / 60)}m ago`) : tt(`قبل ${Math.round(s / 3600)} س`, `${Math.round(s / 3600)}h ago`);
+  if (FPL.staleState.on) { el.className = 'fresh stale'; el.querySelector('span').textContent = tt('الفانتازي يتحدّث', 'FPL updating'); return; }
   el.className = 'fresh ' + (embed ? '' : lm ? 'live' : 'ok');
   el.querySelector('span').textContent = embed || (lm ? tt('مباشر · ', 'Live · ') + ago : tt('محدّث ', 'Updated ') + ago);
 }

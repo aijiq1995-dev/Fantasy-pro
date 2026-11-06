@@ -13,7 +13,7 @@ import { ST, loadLocal, planKey } from './store.js';
 import { scanStatic, unreadCount } from './notify.js';
 import { registerSW, syncPush } from './push.js';
 import './sharecard.js';
-import { VIEWS, AFTER, startLivePolling } from './views/index.js';
+import { VIEWS, AFTER, startLivePolling, freshness } from './views/index.js';
 
 document.body.insertAdjacentHTML('afterbegin', SPRITE);
 applyDir();
@@ -110,11 +110,9 @@ async function onSignedIn(u) {
 }
 let staleT = 0, autoRetryT = 0;
 function staleBar() {
-  const b = document.getElementById('staleTag'), f = document.getElementById('fresh');
-  if (!b) return;
-  const on = FPL.staleState.on;
-  b.classList.toggle('hidden', !on); f?.classList.toggle('hidden', on);
-  if (on) { b.innerHTML = `<i></i>${tt('الفانتازي يتحدّث', 'FPL updating')}`; b.onclick = () => toast(tt('موقع الفانتازي يتحدّث الآن (وقت الإغلاق). نعرض آخر بيانات محفوظة، وراح نحدّث تلقائياً أول ما يرجع.', 'FPL is updating. Showing saved data; will refresh automatically.')); }
+  const f = document.getElementById('fresh'); if (!f) return;
+  freshness();
+  f.onclick = FPL.staleState.on ? () => toast(tt('موقع الفانتازي يتحدّث الآن (وقت الإغلاق). نعرض آخر بيانات محفوظة، وراح نحدّث تلقائياً أول ما يرجع.', 'FPL is updating. Showing saved data; will refresh automatically.')) : null;
 }
 export async function loadAll(fresh = false) {
   FPL.clearStale(); clearTimeout(staleT); clearTimeout(autoRetryT);
@@ -130,7 +128,7 @@ export async function loadAll(fresh = false) {
     AU.touchProfile(ST.user.uid, { teamName: E.entry.name });
     syncPush();
     scanStatic();
-    const wasStale = !document.getElementById('staleTag')?.classList.contains('hidden');
+    const wasStale = !!document.getElementById('fresh')?.classList.contains('stale');
     buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); if (!FPL.staleState.on) toast(wasStale ? tt('رجع موقع الفانتازي — انحدّثت البيانات ✓', 'FPL is back — data updated ✓') : tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
     staleBar();
     if (FPL.staleState.on) staleT = setTimeout(() => loadAll(true), 60e3); // نعيد المحاولة كل دقيقة لحد ما يرجع
