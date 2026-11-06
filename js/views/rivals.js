@@ -12,7 +12,7 @@ import { liveCalc } from '../live-engine.js';
 import { xp } from '../engine.js';
 import { pShirt } from './common.js';
 
-let sel = null, S = {}, busy = false, lastRefresh = 0;
+let sel = null, S = {}, busy = false, lastRefresh = 0, showAll = false;
 const CHIP = { wildcard: tt('وايلد كارد', 'Wildcard'), freehit: tt('فري هت', 'Free Hit'), bboost: tt('بنش بوست', 'Bench Boost'), '3xc': tt('تريبل كابتن', 'Triple Captain'), manager: tt('المدرب', 'Manager') };
 function leagues() {
   const c = (ST.E.entry.leagues?.classic || []).filter((l) => l.league_type === 'x').map((l) => ({ id: l.id, name: l.name, kind: 'c', rank: l.entry_rank, n: l.rank_count }));
@@ -32,7 +32,7 @@ async function load(L) {
     await ensureLive(gw).catch(() => {});
     let members = [], opp = null, table = null;
     if (L.kind === 'c') {
-      const d = await FPL.loadLeague(L.id, 1); const res = d.standings?.results || [];
+      const d = await FPL.loadLeague(L.id, 1); const res = d.standings?.results || []; table = res;
       const myIdx = res.findIndex((r) => r.entry === me);
       const pick = new Set(res.slice(0, 10).map((r) => r.entry)); if (myIdx >= 0) res.slice(Math.max(0, myIdx - 3), myIdx + 4).forEach((r) => pick.add(r.entry));
       members = res.filter((r) => pick.has(r.entry)).map((r) => ({ entry: r.entry, name: r.entry_name, mgr: r.player_name, rank: r.rank, total: r.total, gwPts: r.event_total }));
@@ -76,6 +76,22 @@ function remainingXP(m) {
   return { exp, n };
 }
 const Phi = (z) => { const tt2 = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), p = d * tt2 * (0.3193815 + tt2 * (-0.3565638 + tt2 * (1.781478 + tt2 * (-1.821256 + tt2 * 1.330274)))); return z > 0 ? 1 - p : p; };
+
+/* ---------- الترتيب الحالي ---------- */
+function standings() {
+  const rows = S.table || [], me = ST.profile.teamId; if (!rows.length) return '';
+  const h2h = sel.kind === 'h', myIdx = rows.findIndex((r) => r.entry === me);
+  let list = rows;
+  if (!showAll && rows.length > 12) { const keep = new Set(rows.slice(0, 10).map((r) => r.entry)); if (myIdx >= 0) rows.slice(Math.max(0, myIdx - 1), myIdx + 2).forEach((r) => keep.add(r.entry)); list = rows.filter((r) => keep.has(r.entry)); }
+  const mv = (r) => (r.last_rank && r.last_rank !== r.rank ? `<span class="${r.last_rank > r.rank ? 'up' : 'down'}" style="font-size:10px">${r.last_rank > r.rank ? '▲' : '▼'}${Math.abs(r.last_rank - r.rank)}</span>` : '<span class="mut" style="font-size:10px">–</span>');
+  let prev = 0;
+  const body = list.map((r) => { const gap = r.rank - prev > 1 && prev ? '<div class="st-gap">⋯</div>' : ''; prev = r.rank; const medal = r.rank <= 3 ? `style="background:${['#FBBF24', '#CBD5E1', '#D97706'][r.rank - 1]};color:#111"` : '';
+    return `${gap}<div class="st-row ${r.entry === me ? 'me' : ''} ${r.entry === S.opp ? 'opp' : r.entry === S.nextOpp ? 'nopp' : ''}" onclick="rvOpen(${r.entry})"><span class="st-rk" ${medal}>${r.rank}</span><span class="st-mv">${mv(r)}</span><div class="st-tm"><b>${esc(r.entry_name)}</b><small>${esc(r.player_name || '')}</small></div>${h2h ? `<span class="st-c num">${r.matches_won}-${r.matches_drawn}-${r.matches_lost}</span><span class="st-c num mut">${fmt(r.points_for)}</span><b class="st-c num" style="color:var(--acc)">${r.total}</b>` : `<span class="st-c num mut">${r.event_total ?? '—'}</span><b class="st-c num">${fmt(r.total)}</b>`}</div>`; }).join('');
+  const hd = h2h ? `<span class="st-c">${tt('ف-ت-خ', 'W-D-L')}</span><span class="st-c">${tt('مجموع', 'PF')}</span><span class="st-c">${tt('نقاط', 'Pts')}</span>` : `<span class="st-c">${tt('الجولة', 'GW')}</span><span class="st-c">${tt('المجموع', 'Total')}</span>`;
+  return `<div class="sec"><h2>${I('i-list')}${tt('الترتيب الحالي', 'Current standings')}</h2><span class="mut" style="font-size:12px">${rows.length}${rows.length >= 50 ? '+' : ''} ${tt('فريق', 'teams')}</span></div>
+   <div class="card st-card"><div class="st-row st-head"><span class="st-rk">#</span><span class="st-mv"></span><div class="st-tm">${tt('الفريق', 'Team')}</div>${hd}</div>${body}
+   ${rows.length > 12 ? `<button class="btn btn-g btn-b btn-sm" style="margin-top:8px" onclick="rvAll()">${showAll ? tt('عرض أقل', 'Show less') : tt(`عرض كل الترتيب (${rows.length})`, `Show all (${rows.length})`)}</button>` : ''}</div>`;
+}
 
 /* ---------- الرسم ---------- */
 function diffs(me, them) {
@@ -141,15 +157,23 @@ export function vRivals() {
   const thr = started && T.n ? `<div class="grid g2" style="margin-top:10px"><div class="card"><b style="font-size:13.5px;color:var(--bad)">${I('i-alert', 'i', 'width:15px;height:15px;vertical-align:-3px')} ${tt('خطر عليك', 'Threats')}</b><div class="mut" style="font-size:11px;margin-bottom:6px">${tt('عند منافسينك وانت ما عندك', 'Owned by rivals, not you')}</div>${T.th.map((x) => `<div class="rv-own" onclick="openPlayer(${x.id})"><span>${esc(PM(x.id)?.name || '')}${x.cap ? ` ${I('i-crown', 'i', 'width:11px;height:11px;color:var(--gold)')}${x.cap}` : ''}</span><b class="num">${x.pct}%</b><small class="num">${ST.live?.[x.id]?.total_points ?? 0}${tt('ن', 'p')}</small></div>`).join('') || '<p class="mut">—</p>'}</div>
      <div class="card"><b style="font-size:13.5px;color:var(--acc)">${I('i-sparkle', 'i', 'width:15px;height:15px;vertical-align:-3px')} ${tt('فرصتك', 'Your edge')}</b><div class="mut" style="font-size:11px;margin-bottom:6px">${tt('عندك وقليل منهم عنده', 'Yours, rarely owned')}</div>${T.op.map((x) => `<div class="rv-own" onclick="openPlayer(${x.id})"><span>${esc(PM(x.id)?.name || '')}</span><b class="num">${x.pct}%</b><small class="num">${ST.live?.[x.id]?.total_points ?? 0}${tt('ن', 'p')}</small></div>`).join('') || '<p class="mut">—</p>'}</div></div>` : '';
   const list = [...S.members].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-  return picker + `<div style="margin-top:12px">${top}</div>${thr}
+  return picker + `<div style="margin-top:12px">${top}</div>${standings()}${thr}
    <div class="sec"><h2>${I('i-users')}${tt(`منافسينك بالجولة ${S.gw}`, `Rivals in GW${S.gw}`)}</h2><button class="icon-btn" onclick="rvReload(this)" aria-label="refresh">${I('i-refresh')}</button></div>
    ${!started ? `<div class="note">${I('i-info', 'i', 'color:var(--info)')}<span>${tt('تشكيلات وانتقالات الجولة الجاية تنكشف بعد الإغلاق — هسة تشوف تشكيلاتهم بالجولة الحالية.', 'Next GW picks appear after the deadline.')}</span></div>` : ''}
    <div class="rv-list">${list.map((m, i) => rivalCard(m, me, i)).join('')}</div>
    <p class="mut" style="font-size:11px;text-align:center;margin-top:10px">${sel.kind === 'c' ? tt('يعرض أول 10 بالدوري واللي حواليك. اضغط على أي فريق حتى تشوف تشكيلته كاملة والفروقات.', 'Shows top 10 and those around you. Tap a team for full lineup.') : tt('اضغط على أي فريق حتى تشوف تشكيلته كاملة والفروقات.', 'Tap a team for full lineup.')}</p>`;
 }
 
-function lineupSheet(entry) {
-  const m = S.members?.find((x) => x.entry === entry); if (!m) return;
+async function lineupSheet(entry) {
+  let m = S.members?.find((x) => x.entry === entry) || S.extra?.[entry];
+  if (!m) {
+    const r = (S.table || []).find((x) => x.entry === entry); if (!r) return;
+    openSheet(`${sheetHead(I('i-users'), esc(r.entry_name))}<div class="aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>`);
+    m = { entry, name: r.entry_name, mgr: r.player_name, rank: r.rank, total: r.total };
+    try { m.picks = await FPL.fetchPicks(entry, S.gw); m.calc = liveCalc(m.picks, S.gw); } catch { m.picks = null; }
+    try { const tr = await FPL.fetchTransfers(entry); m.tr = (Array.isArray(tr) ? tr : []).filter((x) => x.event === S.gw); } catch { m.tr = []; }
+    (S.extra = S.extra || {})[entry] = m;
+  }
   const meE = ST.profile.teamId, me = S.members.find((x) => x.entry === meE);
   if (!m.picks) return openSheet(`${sheetHead(I('i-users'), esc(m.name))}<div class="note">${I('i-info')}<span>${tt('التشكيلة تنكشف بعد الإغلاق', 'Lineup hidden until deadline')}</span></div>`);
   const ps = [...m.picks.picks].sort((a, b) => a.position - b.position), mine = new Set((me?.picks?.picks || []).map((p) => p.element));
@@ -171,4 +195,5 @@ Object.assign(window, {
   rvSel: (id, kind) => { sel = leagues().find((l) => l.id === id && l.kind === kind) || sel; S = {}; window.render(); },
   rvReload: (b) => { b?.classList.add('spin'); S = {}; window.render(); },
   rvOpen: (e) => lineupSheet(e),
+  rvAll: () => { showAll = !showAll; window.render(); },
 });
