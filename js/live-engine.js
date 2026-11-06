@@ -26,8 +26,8 @@ const teamDone = (team, gw) => { const f = (ST.G.fx[gw] || []).filter((x) => x.h
 const teamBlank = (team, gw) => !(ST.G.fx[gw] || []).some((x) => x.h === team || x.a === team);
 
 /** حساب نقاط تشكيلة مباشرة (مع البونص المؤقت والتبديلات التلقائية) */
-export function liveCalc(picks, gw = ST.G.cur, bonusMap = null) {
-  const L = ST.live || {}; if (!picks?.picks) return null;
+export function liveCalc(picks, gw = ST.G.cur, bonusMap = null, liveMap = null) {
+  const L = liveMap || ST.live || {}; if (!picks?.picks) return null;
   const pb = bonusMap || provisionalBonus(gw), chip = picks.active_chip;
   const ps = [...picks.picks].sort((a, b) => a.position - b.position).map((x) => ({ ...x }));
   const ptsOf = (id) => { const s = L[id] || {}; return (s.total_points || 0) + (s.bonus ? 0 : pb[id] || 0); };

@@ -514,3 +514,5 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .pgw-total .big-num{font-size:34px;color:var(--acc);line-height:1.1}
 .pgw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
 .pgw-grid>div{background:var(--s1);padding:10px 6px;text-align:center}.pgw-grid b{display:block;font-size:15px}.pgw-grid span{font-size:11.5px;color:var(--mut)}
+.live-hero.done{border-color:rgba(52,211,153,.18)}
+.live-side small.up,.live-side small.down{font-size:10.5px;font-family:var(--num)}
