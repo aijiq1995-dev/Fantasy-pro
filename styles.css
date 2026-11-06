@@ -695,3 +695,5 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .st-tm small{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .st-c{min-width:44px;text-align:center;font-size:12.5px;flex:none}
 .st-gap{text-align:center;color:var(--mut);font-size:12px;line-height:1}
+.st-n{width:34px;text-align:center;font-size:12.5px;flex:none}.st-head .st-n{font-size:10px}
+.st-n{width:27px;font-size:12.5px}.st-card .st-c{min-width:38px}.st-head .st-n,.st-head .st-c{font-size:10px;white-space:nowrap}.st-card .st-row{gap:6px}
