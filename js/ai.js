@@ -83,7 +83,7 @@ export function labCompute(outId, inId, horizon = 5) {
   const err = P ? canBuy(P, outId, inId) : '';
   const per = Array.from({ length: horizon }, (_, i) => from + i).filter((g) => g <= G.lastGW).map((g) => ({ gw: g, out: xp(o, g), in: xp(n, g), diff: Math.round((xp(n, g) - xp(o, g)) * 10) / 10 }));
   const gain = Math.round(per.reduce((a, x) => a + x.diff, 0) * 10) / 10;
-  const hit = P && P.ft - (P.transfers?.length || 0) <= 0 ? 4 : 0;
+  const hit = P && P.ft <= 0 && P.chip !== 'wildcard' && P.chip !== 'freehit' ? 4 : 0;
   let cum = 0, be = null; per.forEach((x) => { cum += x.diff; if (be == null && cum >= hit && hit > 0) be = x.gw; });
   const net = Math.round((gain - hit) * 10) / 10;
   const verdict = err ? 'invalid' : net >= 2 ? 'go' : net > -0.5 ? 'wait' : 'no';

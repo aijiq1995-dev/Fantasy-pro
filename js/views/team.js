@@ -47,7 +47,7 @@ function hero(P) {
       </div>
       <button class="score-ring" onclick="teamTab('insight')" aria-label="rating"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,.08)" stroke-width="6" fill="none"/><circle cx="32" cy="32" r="26" stroke="url(#rg)" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - ring / 100)}" style="--c:${C}" class="ring-arc" transform="rotate(-90 32 32)"/><defs><linearGradient id="rg"><stop offset="0" stop-color="#34D399"/><stop offset="1" stop-color="#60A5FA"/></linearGradient></defs></svg><b>${ring}</b><small>${tt('تقييم', 'Rating')}</small></button>
     </div>
-    <div class="tstrip"><div><small>${tt('التشكيل', 'Formation')}</small><b>${formation(P.xi)}</b></div><div><small>${t('bank')}</small><b>${P.bank.toFixed(1)}</b></div><div><small>${t('ft')}</small><b>${Math.max(0, P.ft - P.transfers.filter((x) => !x.cost).length)}</b></div><div><small>${t('value')}</small><b>${value.toFixed(1)}</b></div>${hits(P) ? `<div><small>${tt('خصم', 'Hits')}</small><b class="down">−${hits(P)}</b></div>` : ''}</div>
+    <div class="tstrip"><div><small>${tt('التشكيل', 'Formation')}</small><b>${formation(P.xi)}</b></div><div><small>${t('bank')}</small><b>${P.bank.toFixed(1)}</b></div><div><small>${t('ft')}</small><b>${P.ft}</b></div><div><small>${t('value')}</small><b>${value.toFixed(1)}</b></div>${hits(P) ? `<div><small>${tt('خصم', 'Hits')}</small><b class="down">−${hits(P)}</b></div>` : ''}</div>
   </section>`;
 }
 function toolbar(P) {

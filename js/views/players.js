@@ -45,28 +45,6 @@ export function afterPlayers() {
 window.pf = (k, v) => { F[k] = v; if (k !== 'page') F.page = 1; window.render(); };
 
 /* ---------- سوق الانتقالات ---------- */
-let sellId = null;
-export function vMarket() {
-  const P = ST.plan; if (!P) return '';
-  const sugg = suggestions(P, 6);
-  let body = '';
-  if (sellId) {
-    const o = PM(sellId), budget = r1(P.bank + o.price);
-    const L = ST.G.players.filter((c) => c.pos === o.pos && !P.squad.includes(c.id) && c.price <= budget && avail(c) > 0.5).map((c) => ({ c, g: r1(xpN(c, ST.G.next, 5) - xpN(o, ST.G.next, 5)) })).sort((a, b) => b.g - a.g).slice(0, 30);
-    body = `<div class="row" style="border-color:rgba(239,68,68,.4)"><div class="mini">${pShirt(o)}</div><div class="info"><b>${tt('بيع', 'Selling')} ${esc(o.name)}</b><span>${tt('الميزانية المتاحة', 'Budget')}: ${budget.toFixed(1)}م</span></div><button class="btn btn-g btn-sm" onclick="sellPick(null)">${t('back')}</button></div>
-     <div class="sec"><h2>${I('i-sparkle')}${tt('أفضل البدائل (5 جولات)', 'Best replacements (5 GWs)')}</h2></div>
-     ${L.map(({ c, g }) => { const e = canBuy(P, sellId, c.id); return playerRow(c, `<div class="col"><span class="tag ${g >= 0 ? 'lime' : 'red'}">${g > 0 ? '+' : ''}${g}</span><small>${tt('فرق المتوقع', 'xP diff')}</small></div>${e ? `<small class="mut" style="max-width:70px;font-size:10.5px">${e}</small>` : `<button class="btn btn-p btn-sm" onclick="event.stopPropagation();confirmT(${sellId},${c.id})">${tt('اختيار', 'Pick')}</button>`}`); }).join('')}`;
-  } else {
-    body = `${sugg.length ? `<div class="sec"><h2>${I('i-sparkle')}${tt('اقتراحات حسب ميزانيتك', 'Suggestions for your budget')}</h2></div>${sugg.map((s) => `<div class="sug"><div class="side-p"><div style="width:36px;height:36px">${pShirt(s.o)}</div><div><b>${esc(s.o.name)}</b><div class="mut" style="font-size:11.5px">${s.o.price.toFixed(1)}م</div></div></div><div class="arrow">←</div><div class="side-p"><div style="width:36px;height:36px">${pShirt(s.c)}</div><div><b>${esc(s.c.name)}</b><div class="mut" style="font-size:11.5px">${s.c.price.toFixed(1)}م</div></div></div><span class="gain">+${s.g}</span><button class="btn btn-p btn-sm" onclick="confirmT(${s.o.id},${s.c.id})">${tt('خطّط', 'Plan')}</button></div>`).join('')}` : ''}
-     <div class="sec"><h2>${I('i-coin')}${tt('اختر لاعب تبيعه', 'Pick a player to sell')}</h2></div>
-     ${['GK', 'DEF', 'MID', 'FWD'].map((pos) => `<div style="margin:10px 2px 6px">${posTag(pos)}</div><div class="grid g3">${P.squad.filter((id) => PM(id).pos === pos).map((id) => { const p = PM(id); return `<button class="card tap" style="padding:10px;text-align:center" onclick="sellPick(${id})"><div style="width:40px;height:40px;margin:0 auto">${pShirt(p)}</div><b style="display:block;font-size:13px;margin-top:4px">${esc(p.name)} ${stTag(p)}</b><span class="mut" style="font-size:11.5px">${p.price.toFixed(1)}م · ${xpN(p, ST.G.next, 5)} xP</span></button>`; }).join('')}</div>`).join('')}`;
-  }
-  return `<div class="grid" style="grid-template-columns:repeat(4,1fr)"><div class="card stat"><span class="k">${t('bank')}</span><span class="v num">${P.bank.toFixed(1)}م</span></div><div class="card stat"><span class="k">${t('ft')}</span><span class="v">${P.ft}</span></div><div class="card stat"><span class="k">${tt('خصم', 'Hits')}</span><span class="v ${P.transfers.some((x) => x.cost) ? 'down' : ''}">${P.transfers.reduce((a, x) => a + x.cost, 0)}</span></div><div class="card stat"><span class="k">${tt('مخطط', 'Planned')}</span><span class="v">${P.transfers.length}</span></div></div>
-   <p class="mut" style="font-size:11.5px;margin:8px 2px">${tt('الانتقالات المجانية تقديرية من سجل جولاتك. سعر البيع الفعلي ممكن يختلف شوية عن السعر الحالي.', 'Free transfers are estimated from your history. Actual selling price may differ slightly.')}</p>${body}`;
-}
-window.sellPick = (id) => { sellId = id; window.render(); };
-window.sellFlow = (id) => { window.closeSheet(); sellId = id; window.go('market'); };
-
 /* ---------- المقارنة ---------- */
 export function vCompare() {
   const ids = LS.get('fp_cmp', []).filter((id) => PM(id));
