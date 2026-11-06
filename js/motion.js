@@ -28,8 +28,8 @@ export function countAll(root, firstView) {
   });
 }
 
-/* تموّج خفيف عند الضغط على الأزرار والبطاقات */
-document.addEventListener('pointerdown', (e) => {
+/* تموّج خفيف عند الضغط — يطلع بعد الضغطة (click) حتى ما يمنع الآيفون أول لمسة */
+document.addEventListener('click', (e) => {
   if (reduced()) return;
   if (e.target.closest('.bnav button')) { try { navigator.vibrate?.(6); } catch {} return; }
   const el = e.target.closest('.btn, .tap, .seg button, .chips2 button, .nb, .icon-btn'); if (!el) return;
@@ -38,7 +38,7 @@ document.addEventListener('pointerdown', (e) => {
   if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
   el.style.overflow = 'hidden'; el.appendChild(sp); setTimeout(() => sp.remove(), 600);
   try { if (el.matches('.btn-p')) navigator.vibrate?.(6); } catch {}
-}, { passive: true });
+}, { capture: true, passive: true });
 
 /* السحب لتحت للتحديث (بالرئيسية والصفحات الرئيسية) */
 let y0 = null, pulled = 0;
