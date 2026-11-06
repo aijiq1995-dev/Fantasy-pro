@@ -746,3 +746,5 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .dc-evt{display:flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.9}
 .dc-a .dc-evt{justify-content:flex-end}
 .dc-evt .n{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sc2{display:inline-flex;align-items:center;gap:.35em;white-space:nowrap}.sc2 i{font-style:normal;opacity:.6}
+[dir=rtl] .sc2,[dir=rtl] .fx-sc{direction:rtl}

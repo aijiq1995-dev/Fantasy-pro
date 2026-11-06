@@ -1,7 +1,7 @@
 /* مكونات مشتركة بين الأقسام */
 import { ST, tShort, tName, PM, savePlan } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, shirt, crest, posTag, fdr, spark, toast, openSheet, closeSheet, sheetHead, fmt, r1, RATE_TXT, LS } from '../ui.js';
+import { esc, I, shirt, crest, posTag, fdr, spark, toast, openSheet, closeSheet, sheetHead, fmt, r1, RATE_TXT, LS, scoreHTML } from '../ui.js';
 import { xp, xpN, fixturesFor, avail, avgFdr, canBuy } from '../engine.js';
 import * as FPL from '../fpl.js';
 import * as AU from '../auth.js';
@@ -105,7 +105,7 @@ window.openClub = (tid) => {
    <div class="sec" style="margin-top:4px"><h2 style="font-size:14px">${I('i-cal', 'i', 'width:16px;height:16px')}${tt('المباريات الجاية', 'Next fixtures')}</h2></div>
    <div class="nx5">${next.map((f) => { const home = f.h === tid, opp = home ? f.a : f.h, d = home ? f.hd : f.ad; return `<button><small>GW${f.ev}</small><span class="rate f${d}">${tShort(opp)}</span><small>${home ? t('home_s') : t('away_s')}</small></button>`; }).join('') || '<p class="mut">—</p>'}</div>
    <div class="sec"><h2 style="font-size:14px">${I('i-history', 'i', 'width:16px;height:16px')}${tt('آخر النتائج', 'Recent results')}</h2></div>
-   <div class="list">${past.map((f) => { const [r, c] = res(f); return `<div class="row"><span class="rate" style="background:${c};color:#0A0D14">${tt({ W: 'فوز', L: 'خسارة', D: 'تعادل' }[r], r)}</span><div class="info"><b style="font-size:13px">${tName(f.h)} <span class="num">${f.hs}–${f.as}</span> ${tName(f.a)}</b><span>GW${f.ev}</span></div></div>`; }).join('') || '<p class="mut" style="padding:10px">—</p>'}</div>
+   <div class="list">${past.map((f) => { const [r, c] = res(f); return `<div class="row"><span class="rate" style="background:${c};color:#0A0D14">${tt({ W: 'فوز', L: 'خسارة', D: 'تعادل' }[r], r)}</span><div class="info"><b style="font-size:13px">${tName(f.h)} ${scoreHTML(f.hs, f.as, 'num')} ${tName(f.a)}</b><span>GW${f.ev}</span></div></div>`; }).join('') || '<p class="mut" style="padding:10px">—</p>'}</div>
    <div class="sec"><h2 style="font-size:14px">${I('i-users', 'i', 'width:16px;height:16px')}${tt('أفضل اللاعبين', 'Top players')}</h2></div>
    <div class="list">${players.map((p) => `<div class="row tap" onclick="openPlayer(${p.id})"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)} ${mine.has(p.id) ? `<span class="tag lime">${tt('بفريقك', 'Yours')}</span>` : ''}</b><span><span class="pos ${p.pos}">${p.pos}</span>${p.price.toFixed(1)}م · ${p.own}%</span></div><div class="col">${p.total}<small>${tt('نقطة', 'pts')}</small></div></div>`).join('')}</div>
    <button class="btn btn-g btn-b" style="margin-top:12px" onclick="closeSheet();goClub(${tid})">${tt('كل لاعبي النادي', 'All club players')}</button>`);
@@ -132,7 +132,7 @@ window.playerGW = async (id, gw, mult = 1) => {
   const pb = s.bonus ? 0 : (provisionalBonus(gw)[id] || 0);
   const total = (s.total_points || 0) + pb, shown = total * Math.max(1, mult);
   const match = (f) => { const home = f.h === p.team, opp = home ? f.a : f.h; const st = f.fin ? tt('انتهت', 'FT') : f.started ? `<span class="livebadge">${f.min || ''}′</span>` : (f.ko ? new Date(f.ko).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
-    return `<div class="pgw-match" onclick="closeSheet();setTimeout(()=>openMatchC&&openMatchC(${f.id},${gw}),200)"><div class="flex" style="gap:6px">${crest(tShort(f.h), 26)}<b>${tShort(f.h)}</b></div><div style="text-align:center">${f.started ? `<b class="score" style="font-size:20px">${f.hs ?? 0} – ${f.as ?? 0}</b>` : '<b class="mut">VS</b>'}<div style="font-size:11.5px" class="mut">${st}</div></div><div class="flex" style="gap:6px;justify-content:flex-end"><b>${tShort(f.a)}</b>${crest(tShort(f.a), 26)}</div></div>`; };
+    return `<div class="pgw-match" onclick="closeSheet();setTimeout(()=>openMatchC&&openMatchC(${f.id},${gw}),200)"><div class="flex" style="gap:6px">${crest(tShort(f.h), 26)}<b>${tShort(f.h)}</b></div><div style="text-align:center">${f.started ? `${scoreHTML(f.hs, f.as, 'score', 'font-size:20px;font-weight:700')}` : '<b class="mut">VS</b>'}<div style="font-size:11.5px" class="mut">${st}</div></div><div class="flex" style="gap:6px;justify-content:flex-end"><b>${tShort(f.a)}</b>${crest(tShort(f.a), 26)}</div></div>`; };
   const rows = []; (el?.explain || []).forEach((x) => (x.stats || []).forEach((r) => { if (r.identifier === 'bps') return; const ex = rows.find((y) => y.k === r.identifier); if (ex) { ex.v += r.value; ex.p += r.points; } else rows.push({ k: r.identifier, v: r.value, p: r.points }); }));
   if (!rows.length && (s.minutes || 0) > 0) Object.keys(EXPL()).forEach((k) => { if (k !== 'bonus' && +s[k]) rows.push({ k, v: s[k], p: null }); });
   if (!rows.some((r) => r.k === 'bonus') && s.bonus) rows.push({ k: 'bonus', v: s.bonus, p: s.bonus });

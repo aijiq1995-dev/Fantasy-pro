@@ -1,7 +1,7 @@
 /* مركز المباريات والنقاط المباشرة */
 import { ST, PM, tName, tShort } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt } from '../ui.js';
+import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML } from '../ui.js';
 import * as FPL from '../fpl.js';
 import { scanLive } from '../notify.js';
 import { pShirt } from './common.js';
@@ -75,7 +75,7 @@ export function vLive() {
 function fxCard(f, myTeams) {
   const st = f.fin ? tt('انتهت', 'FT') : f.started ? `${f.min || ''}′` : f.ko ? new Date(f.ko).toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { hour: 'numeric', minute: '2-digit' }) : '—';
   const mine = myTeams.has(f.h) || myTeams.has(f.a);
-  return `<div class="card tap" style="margin-bottom:8px;${mine ? 'border-color:rgba(52,211,153,.3)' : ''}" onclick="openMatchC(${f.id},${f.ev})"><div class="fx-card"><div class="tm">${crest(tShort(f.h), 38)}${tName(f.h)}</div><div class="mid">${f.started ? `<div class="score">${f.hs ?? 0} - ${f.as ?? 0}</div>` : ''}<span class="${f.started && !f.fin ? 'livebadge' : 'mut'}" style="font-size:11.5px">${st}</span></div><div class="tm">${crest(tShort(f.a), 38)}${tName(f.a)}</div></div></div>`;
+  return `<div class="card tap" style="margin-bottom:8px;${mine ? 'border-color:rgba(52,211,153,.3)' : ''}" onclick="openMatchC(${f.id},${f.ev})"><div class="fx-card"><div class="tm">${crest(tShort(f.h), 38)}${tName(f.h)}</div><div class="mid">${f.started ? `<div>${scoreHTML(f.hs, f.as)}</div>` : ''}<span class="${f.started && !f.fin ? 'livebadge' : 'mut'}" style="font-size:11.5px">${st}</span></div><div class="tm">${crest(tShort(f.a), 38)}${tName(f.a)}</div></div></div>`;
 }
 function myLiveBlock() {
   const calc = liveCalc(ST.E.picks, ST.G.cur); if (!calc) return '';
