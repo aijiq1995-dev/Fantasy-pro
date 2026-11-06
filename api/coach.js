@@ -7,6 +7,7 @@
      FIREBASE_API_KEY    (اختياري لكن منصوح: يتأكد إن الطلب من مستخدم مسجّل)
      CLAUDE_MODEL        (اختياري، الافتراضي claude-sonnet-5-5)
 ========================================================= */
+export const config = { maxDuration: 60 };
 const SYSTEM = `أنت مدرب فانتازي الدوري الإنجليزي خبير داخل تطبيق "فانتازي برو".
 - أجب بالعربية، وتكدر تستخدم لهجة عراقية خفيفة.
 - كن مختصراً وعملياً: نقاط واضحة، أرقام من البيانات، وتوصية نهائية.
@@ -66,19 +67,26 @@ export default async function handler(req, res) {
   while (history.length && history[0].role !== 'user') history.shift();
 
   if (!key) {
-    // Gemini (مجاني ضمن حدود Google AI Studio)
-    try {
-      const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST', headers: { 'x-goog-api-key': gkey, 'content-type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM + context }] }, contents: [...history, { role: 'user', content: question }].map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.5 } }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (r.status === 429) return send(res, 429, { error: 'وصلت حد Gemini المجاني لهالفترة — جرّب بعد شوية' });
-      if (!r.ok) return send(res, 502, { error: d?.error?.message || 'AI error' });
-      const text = (d.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
-      return text ? send(res, 200, { text, provider: 'gemini' }) : send(res, 502, { error: 'empty answer' });
-    } catch { return send(res, 502, { error: 'تعذّر الاتصال بالذكاء الاصطناعي' }); }
+    // Gemini (مجاني ضمن حدود Google AI Studio) — إذا موديل مضغوط ينتقل للي بعده تلقائياً
+    const models = [...new Set([process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'].filter(Boolean))];
+    const payload = JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM + context }] }, contents: [...history, { role: 'user', content: question }].map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.5 } });
+    let last = 'AI error', limited = false; const t0 = Date.now();
+    for (const model of models) {
+      if (Date.now() - t0 > 40000) break;
+      try {
+        const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 25000);
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': gkey, 'content-type': 'application/json' }, body: payload, signal: ctl.signal });
+        clearTimeout(to);
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) { const text = (d.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim(); if (text) return send(res, 200, { text, provider: 'gemini', model }); last = 'empty answer'; continue; }
+        last = d?.error?.message || `HTTP ${r.status}`;
+        if (r.status === 429) limited = true;
+        // 503/500/429/404 → جرّب الموديل اللي بعده
+        if (![429, 500, 503, 404, 400].includes(r.status)) break;
+      } catch (e) { last = e.name === 'AbortError' ? 'timeout' : 'network'; }
+    }
+    if (limited) return send(res, 429, { error: 'وصلت حد Gemini المجاني لهالفترة — جرّب بعد شوية' });
+    return send(res, 502, { error: last });
   }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
