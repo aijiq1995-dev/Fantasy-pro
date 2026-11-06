@@ -32,6 +32,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return send(res, 503, { error: 'no_key' });
+  // يقبل الطلبات من نفس موقع التطبيق فقط (حتى ما يستخدم أحد مفتاحك من برا)
+  const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+  const origin = req.headers.origin || req.headers.referer || '';
+  if (origin && host && !origin.includes(host)) return send(res, 403, { error: 'forbidden' });
 
   // التحقق من مستخدم Firebase
   let uid = 'anon:' + (req.headers['x-forwarded-for'] || '').split(',')[0];
