@@ -7,8 +7,9 @@ import { tt } from './i18n.js';
 import { esc, I, openSheet, sheetHead, toast } from './ui.js';
 import * as FPL from './fpl.js';
 import { liveCalc } from './live-engine.js';
+import { shirt } from './ui.js';
 
-const W = 1080, H = 1350, AR = '"IBM Plex Sans Arabic", system-ui, sans-serif', EN = 'Inter, system-ui, sans-serif';
+const W = 1080, H = 1920, AR = '"IBM Plex Sans Arabic", system-ui, sans-serif', EN = 'Inter, system-ui, sans-serif';
 const CHIP = { wildcard: 'وايلد كارد', freehit: 'فري هت', bboost: 'بنش بوست', '3xc': 'تريبل كابتن' };
 const fmt = (n) => (n == null ? '—' : Number(n).toLocaleString('en'));
 
@@ -29,50 +30,88 @@ async function gather(gw) {
     cap: cap ? { name: cap.name, pts: capRow.pts * Math.max(1, capRow.m), mult: capRow.m } : null,
     best: best ? { name: PM(best.id)?.name, pts: best.pts * Math.max(1, best.m) } : null,
     chip: picks.active_chip, hit: h.event_transfers_cost || 0, bench: h.points_on_bench, live: gw === G.cur && !ev.fin,
-    xi: rows.slice(0, 11).map((r) => ({ name: PM(r.id)?.name || '', pos: PM(r.id)?.pos, pts: r.pts * Math.max(1, r.m), cap: r.cap })),
+    squad: calc.rows.map((r) => ({ id: r.id, name: PM(r.id)?.name || '', pos: PM(r.id)?.pos, team: tShort(PM(r.id)?.team), slot: r.pos, pts: r.m ? r.pts * r.m : r.pts, counted: r.m > 0, cap: r.cap, vc: r.vc, m: r.m, subIn: r.subIn, subOut: r.subOut, best: best && r.id === best.id })),
   };
 }
 
 function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
-async function draw(d) {
-  try { await Promise.all([document.fonts.load(`700 60px ${AR}`), document.fonts.load(`800 60px ${EN}`), document.fonts.load(`500 30px ${AR}`)]); } catch {}
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
-  c.direction = 'rtl';
-  // الخلفية
-  const g = c.createRadialGradient(W / 2, 260, 60, W / 2, 520, 1100); g.addColorStop(0, '#174A39'); g.addColorStop(0.5, '#0E2420'); g.addColorStop(1, '#090C13');
-  c.fillStyle = g; c.fillRect(0, 0, W, H);
-  c.strokeStyle = 'rgba(124,245,196,.07)'; c.lineWidth = 6; c.beginPath(); c.arc(W / 2, H + 60, 380, 0, Math.PI * 2); c.stroke(); c.strokeRect(330, -20, 420, 180);
-  // الهيدر
-  c.textAlign = 'right'; c.fillStyle = '#34D399'; c.font = `700 34px ${AR}`; c.fillText('فانتازي برو', W - 70, 100);
-  c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `500 28px ${AR}`; c.fillText(d.live ? `الجولة ${d.gw} · مباشر` : `الجولة ${d.gw}`, W - 70, 145);
-  c.textAlign = 'left'; c.fillStyle = '#FBBF24'; c.font = `800 30px ${EN}`; c.fillText('GW' + d.gw, 70, 100);
-  // اسم الفريق
-  c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = `700 54px ${AR}`; c.fillText(d.team, W / 2, 255);
-  if (d.mgr) { c.fillStyle = 'rgba(255,255,255,.5)'; c.font = `500 28px ${AR}`; c.fillText(d.mgr, W / 2, 300); }
+const shirtImg = new Map();
+function loadShirt(team, pos) {
+  const k = team + (pos === 'GK' ? 'G' : '');
+  if (!shirtImg.has(k)) shirtImg.set(k, new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(shirt(team, pos).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" ')); }));
+  return shirtImg.get(k);
+}
+const clip = (c, t, max) => { if (c.measureText(t).width <= max) return t; while (t.length > 2 && c.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
+async function player(c, p, x, y, sz, dim) {
+  const im = await loadShirt(p.team, p.pos);
+  c.save(); if (dim) c.globalAlpha = 0.55;
+  c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 18; c.shadowOffsetY = 8;
+  if (im) c.drawImage(im, x - sz / 2, y - sz / 2, sz, sz);
+  c.restore();
+  // الاسم
+  const nw = 168, ny = y + sz / 2 + 2; c.font = `600 25px ${EN}`; c.textAlign = 'center';
+  rr(c, x - nw / 2, ny, nw, 38, 9); c.fillStyle = 'rgba(8,12,20,.88)'; c.fill();
+  c.fillStyle = dim ? 'rgba(255,255,255,.6)' : '#fff'; c.fillText(clip(c, p.name, nw - 14), x, ny + 27);
   // النقاط
-  const pg = c.createLinearGradient(0, 330, 0, 560); pg.addColorStop(0, '#7CF5C4'); pg.addColorStop(1, '#10B981');
-  c.fillStyle = pg; c.font = `800 230px ${EN}`; c.fillText(String(d.pts ?? '—'), W / 2, 545);
-  c.fillStyle = 'rgba(255,255,255,.65)'; c.font = `600 34px ${AR}`; c.fillText('نقطة', W / 2, 600);
-  if (d.avg) { const diff = d.pts - d.avg; c.fillStyle = diff >= 0 ? '#34D399' : '#F87171'; c.font = `600 30px ${AR}`; c.fillText(`${diff >= 0 ? '+' : ''}${diff} عن المعدل (${d.avg})`, W / 2, 648); }
+  const pc = p.cap ? '#FBBF24' : !p.counted ? '#94A3B8' : p.pts >= 10 ? '#34D399' : p.pts >= 4 ? '#F8FAFC' : p.pts >= 2 ? '#E2E8F0' : '#F87171';
+  rr(c, x - nw / 2, ny + 40, nw, 42, 9); c.fillStyle = p.cap ? 'rgba(251,191,36,.22)' : p.best ? 'rgba(52,211,153,.22)' : 'rgba(255,255,255,.92)'; c.fill();
+  c.fillStyle = p.cap || p.best ? pc : '#0B1222'; if (!p.counted && !p.cap && !p.best) c.fillStyle = '#64748B';
+  c.font = `800 30px ${EN}`; c.fillText(String(p.pts), x, ny + 72);
+  // شارات
+  const badge = (txt, bx, bg, fg) => { c.beginPath(); c.arc(bx, y - sz / 2 + 22, 22, 0, Math.PI * 2); c.fillStyle = bg; c.fill(); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2; c.stroke(); c.fillStyle = fg; c.font = `800 22px ${EN}`; c.fillText(txt, bx, y - sz / 2 + 30); };
+  if (p.cap) badge(p.m === 3 ? '3×' : 'C', x + sz / 2 - 8, '#FBBF24', '#1C1404'); else if (p.vc) badge('V', x + sz / 2 - 8, '#E2E8F0', '#0B1222');
+  if (p.subIn) badge('↑', x - sz / 2 + 8, '#34D399', '#052E1C'); if (p.subOut) badge('↓', x - sz / 2 + 8, '#F87171', '#2A0606');
+  if (p.best && !p.cap) badge('★', x - sz / 2 + 8, '#34D399', '#052E1C');
+}
+async function draw(d) {
+  try { await Promise.all([document.fonts.load(`700 60px ${AR}`), document.fonts.load(`800 60px ${EN}`), document.fonts.load(`500 30px ${AR}`), document.fonts.load(`600 25px ${EN}`)]); } catch {}
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); c.direction = 'rtl';
+  // الخلفية
+  const g = c.createRadialGradient(W / 2, 200, 60, W / 2, 700, 1500); g.addColorStop(0, '#174A39'); g.addColorStop(0.45, '#0E2420'); g.addColorStop(1, '#090C13');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  // الهيدر
+  c.textAlign = 'right'; c.fillStyle = '#34D399'; c.font = `700 36px ${AR}`; c.fillText('فانتازي برو', W - 64, 92);
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `500 28px ${AR}`; c.fillText(d.live ? `الجولة ${d.gw} · مباشر` : `الجولة ${d.gw}`, W - 64, 136);
+  c.textAlign = 'left'; c.fillStyle = '#FBBF24'; c.font = `800 34px ${EN}`; c.fillText('GW' + d.gw, 64, 96);
+  if (d.mgr) { c.fillStyle = 'rgba(255,255,255,.5)'; c.font = `500 26px ${AR}`; c.fillText(d.mgr, 64, 136); }
+  // اسم الفريق + النقاط
+  c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = `700 52px ${AR}`; c.fillText(d.team, W / 2, 228);
+  const pg = c.createLinearGradient(0, 250, 0, 430); pg.addColorStop(0, '#7CF5C4'); pg.addColorStop(1, '#10B981');
+  c.fillStyle = pg; c.font = `800 176px ${EN}`; c.fillText(String(d.pts ?? '—'), W / 2, 420);
+  c.font = `600 30px ${AR}`; const sub = d.avg != null ? `نقطة · ${d.pts - d.avg >= 0 ? '+' : ''}${d.pts - d.avg} عن المعدل (${d.avg})` : 'نقطة';
+  c.fillStyle = d.avg != null && d.pts < d.avg ? '#F87171' : 'rgba(255,255,255,.75)'; c.fillText(sub, W / 2, 470);
   // الإحصائيات
   const stats = [['الترتيب العام', fmt(d.rank), d.rankPrev && d.rank ? (d.rank < d.rankPrev ? '▲' : d.rank > d.rankPrev ? '▼' : '') : '', d.rank < d.rankPrev ? '#34D399' : '#F87171'], ['ترتيب الجولة', fmt(d.gwRank), '', ''], ['أعلى نقاط', fmt(d.top), '', '']];
-  stats.forEach(([l, v, ar, col], i) => { const bw = 300, x = W - 70 - bw - i * (bw + 20), y = 700; rr(c, x, y, bw, 150, 26); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill();
-    c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `500 26px ${AR}`; c.fillText(l, x + bw / 2, y + 50); c.fillStyle = '#fff'; c.font = `800 46px ${EN}`; c.fillText(v, x + bw / 2, y + 112); if (ar) { c.fillStyle = col; c.font = `800 28px ${EN}`; c.fillText(ar, x + bw / 2 + c.measureText(v).width / 2 + 52, y + 108); } });
-  // الكابتن وأحسن لاعب
-  const boxes = [['الكابتن', d.cap ? `${d.cap.name}` : '—', d.cap ? `${d.cap.pts}${d.cap.mult === 3 ? ' (×3)' : ''}` : '', '#FBBF24'], ['نجم فريقك', d.best?.name || '—', d.best ? String(d.best.pts) : '', '#34D399']];
-  boxes.forEach(([l, n, p, col], i) => { const bw = 460, x = W - 70 - bw - i * (bw + 20), y = 880; rr(c, x, y, bw, 160, 26); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill(); c.fillStyle = col; c.fillRect(x + bw - 8, y + 30, 8, 100);
-    c.textAlign = 'right'; c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `500 26px ${AR}`; c.fillText(l, x + bw - 36, y + 52); c.fillStyle = '#fff'; c.font = `700 40px ${EN}`; c.fillText(n.length > 14 ? n.slice(0, 13) + '…' : n, x + bw - 36, y + 112);
-    c.textAlign = 'left'; c.fillStyle = col; c.font = `800 60px ${EN}`; c.fillText(p, x + 34, y + 112); });
-  // شارات
-  const tags = []; if (d.chip) tags.push([CHIP[d.chip] || d.chip, '#A78BFA']); if (d.hit) tags.push([`خصم −${d.hit}`, '#F87171']); if (d.bench) tags.push([`الدكة ${d.bench}`, 'rgba(255,255,255,.6)']);
-  let tx = W - 70; c.font = `600 28px ${AR}`; c.textAlign = 'right';
-  tags.forEach(([txt, col]) => { const tw = c.measureText(txt).width + 44; rr(c, tx - tw, 1075, tw, 56, 28); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.fillStyle = col; c.fillText(txt, tx - 22, 1113); tx -= tw + 14; });
-  // التشكيلة المصغرة
-  c.textAlign = 'center'; const y0 = 1185; const lines = ['GK', 'DEF', 'MID', 'FWD'].map((pos) => d.xi.filter((x) => x.pos === pos));
-  const flat = lines.flat(); const cw = (W - 140) / Math.max(1, flat.length);
-  flat.forEach((p, i) => { const x = W - 70 - cw * (i + 0.5); c.fillStyle = p.cap ? '#FBBF24' : p.pts >= 6 ? '#34D399' : p.pts >= 2 ? 'rgba(255,255,255,.85)' : '#F87171'; c.font = `800 30px ${EN}`; c.fillText(String(p.pts), x, y0); c.fillStyle = 'rgba(255,255,255,.45)'; c.font = `500 17px ${EN}`; const nm = p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name; c.fillText(nm, x, y0 + 30); });
+  stats.forEach(([l, v, ar, col], i) => { const bw = 306, x = W - 64 - bw - i * (bw + 18), y = 505; rr(c, x, y, bw, 124, 24); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill();
+    c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `500 24px ${AR}`; c.fillText(l, x + bw / 2, y + 42); c.fillStyle = '#fff'; c.font = `800 42px ${EN}`; c.fillText(v, x + bw / 2, y + 96);
+    if (ar) { c.fillStyle = col; c.font = `800 26px ${EN}`; c.fillText(ar, x + bw / 2 + c.measureText(v).width / 2 + 44, y + 93); } });
+  // الملعب
+  const px = 40, py = 660, pw = W - 80, ph = 900;
+  rr(c, px, py, pw, ph, 34); const fg = c.createLinearGradient(0, py, 0, py + ph); fg.addColorStop(0, '#15803D'); fg.addColorStop(1, '#166534'); c.fillStyle = fg; c.fill();
+  c.save(); rr(c, px, py, pw, ph, 34); c.clip();
+  for (let i = 0; i < 9; i++) { if (i % 2) { c.fillStyle = 'rgba(255,255,255,.035)'; c.fillRect(px, py + (ph / 9) * i, pw, ph / 9); } }
+  c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 4; c.strokeRect(px + 40, py + 30, pw - 80, ph - 60);
+  c.strokeRect(W / 2 - 200, py + 30, 400, 150); c.strokeRect(W / 2 - 95, py + 30, 190, 60);
+  c.beginPath(); c.moveTo(px + 40, py + ph - 30); c.lineTo(px + pw - 40, py + ph - 30); c.stroke();
+  c.beginPath(); c.arc(W / 2, py + ph - 30, 130, Math.PI, 0); c.stroke();
+  c.restore();
+  const xi = d.squad.filter((p) => p.slot <= 11), bench = d.squad.filter((p) => p.slot > 11);
+  const lines = ['GK', 'DEF', 'MID', 'FWD'].map((pos) => xi.filter((p) => p.pos === pos)).filter((l) => l.length);
+  const sz = 132, rowH = (ph - 60) / lines.length;
+  for (let li = 0; li < lines.length; li++) {
+    const L = lines[li], cy = py + 30 + rowH * li + rowH / 2 - 40, gap = Math.min(200, (pw - 60) / L.length);
+    for (let k = 0; k < L.length; k++) { const cx = W / 2 + (k - (L.length - 1) / 2) * gap * -1; await player(c, L[k], cx, cy, sz, L[k].subOut); }
+  }
+  // الدكة
+  const by = 1590, bh = 240; rr(c, px, by, pw, bh, 28); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill();
+  c.textAlign = 'right'; c.fillStyle = 'rgba(255,255,255,.55)'; c.font = `600 24px ${AR}`; c.fillText(`الدكة${d.bench != null ? ` · ${d.bench} نقطة` : ''}`, W - 70, by + 40);
+  const bgap = (pw - 40) / Math.max(1, bench.length);
+  for (let k = 0; k < bench.length; k++) { const cx = W - px - 20 - bgap * (k + 0.5); await player(c, bench[k], cx, by + 104, 104, !bench[k].subIn && d.chip !== 'bboost'); }
   // التذييل
-  c.fillStyle = 'rgba(255,255,255,.35)'; c.font = `500 24px ${EN}`; c.fillText('fantasy-pro-aijo0.vercel.app', W / 2, H - 50);
+  const tags = []; if (d.chip) tags.push([CHIP[d.chip] || d.chip, '#A78BFA']); if (d.hit) tags.push([`خصم −${d.hit}`, '#F87171']); if (d.cap) tags.push([`الكابتن: ${d.cap.name} (${d.cap.pts})`, '#FBBF24']);
+  c.font = `600 26px ${AR}`; let tw = tags.reduce((a, [t]) => a + c.measureText(t).width + 60, -14), tx = W / 2 + tw / 2; c.textAlign = 'right';
+  tags.forEach(([txt, col]) => { const w = c.measureText(txt).width + 46; rr(c, tx - w, 1846, w, 50, 25); c.fillStyle = 'rgba(255,255,255,.08)'; c.fill(); c.fillStyle = col; c.fillText(txt, tx - 23, 1880); tx -= w + 14; });
+  if (!tags.length) { c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.35)'; c.font = `500 24px ${EN}`; c.fillText('fantasy-pro-aijo0.vercel.app', W / 2, 1880); }
   return cv;
 }
 
