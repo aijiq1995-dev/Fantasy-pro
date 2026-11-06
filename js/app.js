@@ -118,12 +118,15 @@ export async function loadAll(fresh = false) {
   }
 }
 export function basePlan() {
-  const { E, G } = ST; if (!E.picks) return null;
-  const ps = [...E.picks.picks].sort((a, b) => a.position - b.position).filter((p) => G.PM[p.element]);
-  if (ps.length < 15) return null;
-  return { squad: ps.map((p) => p.element), xi: ps.filter((p) => p.position <= 11).map((p) => p.element), bench: ps.filter((p) => p.position > 11).map((p) => p.element),
-    cap: (ps.find((p) => p.is_captain) || ps[0]).element, vc: (ps.find((p) => p.is_vice_captain) || ps[1]).element,
-    bank: (E.picks.entry_history?.bank ?? 0) / 10, ft: window.__EMBED?.ft ?? FPL.estimateFT(E.hist), transfers: [], chip: '' };
+  const { E, G } = ST; const src = E.basePicks || E.picks; if (!src) return null;
+  const ps = [...src.picks].sort((a, b) => a.position - b.position).map((p) => ({ ...p }));
+  let bank = (src.entry_history?.bank ?? 0) / 10;
+  (E.pending || []).forEach((t) => { const slot = ps.find((p) => p.element === t.element_out); if (!slot) return; slot.element = t.element_in; bank += ((t.element_out_cost || 0) - (t.element_in_cost || 0)) / 10; });
+  const okP = ps.filter((p) => G.PM[p.element]); if (okP.length < 15) return null;
+  const ft = Math.max(0, (window.__EMBED?.ft ?? FPL.estimateFT(E.hist)) - (E.pending || []).length);
+  return { squad: okP.map((p) => p.element), xi: okP.filter((p) => p.position <= 11).map((p) => p.element), bench: okP.filter((p) => p.position > 11).map((p) => p.element),
+    cap: (okP.find((p) => p.is_captain) || okP[0]).element, vc: (okP.find((p) => p.is_vice_captain) || okP[1]).element,
+    bank: Math.round(bank * 10) / 10, ft, transfers: [], chip: '' };
 }
 function loadPlan() { const s = LS.get(planKey()); return s && s.squad?.length === 15 && s.squad.every((id) => ST.G.PM[id]) ? s : basePlan(); }
 

@@ -29,6 +29,10 @@ async function idleRefresh() {
     const { setGame } = await import('../engine.js'); const { scanStatic } = await import('../notify.js');
     const G2 = await FPL.loadGame(false); if (!G2.next) G2.next = G2.cur || 1;
     if (G2.cur !== ST.G.cur) return window.loadAll(true);
+    const E2 = await FPL.loadEntry(ST.profile.teamId).catch(() => null);
+    const sig = (E) => `${E?.gw}|${(E?.pending || []).map((t) => t.element_in + ':' + t.element_out).join(',')}`;
+    if (E2 && sig(E2) !== sig(ST.E)) return window.loadAll(true);
+    if (E2) { ST.E.entry = E2.entry; ST.E.hist = E2.hist; }
     ST.G = G2; setGame(G2); scanStatic(); idleAt = Date.now();
     if (!document.querySelector('.ov') && ['home', 'players', 'season', 'team'].includes(ST.view)) window.render();
   } catch {}
@@ -43,7 +47,7 @@ export function freshness() {
 }
 export function startLivePolling() {
   clearInterval(poll); clearInterval(freshT); lastFetch = lastFetch || Date.now(); idleAt = Date.now();
-  const step = () => { if (!ST.G || document.hidden) return; if (liveMode()) { if (Date.now() - lastFetch >= 28e3) refreshLive(true); } else if (Date.now() - idleAt >= 10 * 60e3) idleRefresh(); };
+  const step = () => { if (!ST.G || document.hidden) return; if (liveMode()) { if (Date.now() - lastFetch >= 28e3) refreshLive(true); } else if (Date.now() - idleAt >= 5 * 60e3) idleRefresh(); };
   poll = setInterval(step, 5000); freshT = setInterval(freshness, 5000); freshness();
   if (!window.__visBound) { window.__visBound = 1; document.addEventListener('visibilitychange', () => { if (!document.hidden && ST.G) { if (liveMode()) refreshLive(true); else if (Date.now() - idleAt > 120e3) idleRefresh(); } }); }
   if (liveMode()) refreshLive(true);

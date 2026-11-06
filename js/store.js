@@ -16,5 +16,5 @@ export function loadLocal() {
 }
 export const saveNotifs = () => LS.set(k('notifs'), ST.notifs.slice(0, 120));
 export const saveWatchLocal = () => LS.set(k('watch'), [...ST.watch]);
-export const planKey = () => `fp_plan_${ST.profile.teamId}_${ST.G.next}_${ST.E.gw}`;
+export const planKey = () => `fp_plan_${ST.profile.teamId}_${ST.G.next}_${ST.E.gw}_${(ST.E.pending || []).map((t) => t.element_in).join('-')}`;
 export const savePlan = () => ST.plan && LS.set(planKey(), ST.plan);

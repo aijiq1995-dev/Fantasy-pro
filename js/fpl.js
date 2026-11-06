@@ -64,7 +64,12 @@ export async function loadEntry(id, fresh = false) {
   ]);
   const gw = entry.current_event || null;
   const picks = gw ? await get(`entry/${id}/event/${gw}/picks/`, {}, { ttl: 300, fresh }).catch(() => null) : null;
-  return { entry, hist, transfers, picks, gw };
+  // بعد الفري هيت الفريق يرجع لتشكيلة الجولة اللي قبلها
+  let basePicks = picks, fhRevert = false;
+  if (picks?.active_chip === 'freehit' && gw > 1) { const prev = await get(`entry/${id}/event/${gw - 1}/picks/`, {}, { ttl: 3600, fresh }).catch(() => null); if (prev) { basePicks = prev; fhRevert = true; } }
+  // الانتقالات اللي سويتها للجولة الجاية (تنعرض فوراً بالواجهة العامة)
+  const pending = (Array.isArray(transfers) ? transfers : []).filter((t) => t.event > gw).sort((a, b) => new Date(a.time) - new Date(b.time));
+  return { entry, hist, transfers, picks, basePicks, fhRevert, pending, gw };
 }
 export const fetchEntry = (id) => get(`entry/${id}/`, {}, { ttl: 120 });
 export const fetchHistory = (id) => get(`entry/${id}/history/`, {}, { ttl: 300 });
