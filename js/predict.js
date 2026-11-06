@@ -37,7 +37,7 @@ export function liveAverage(live) {
 }
 
 /** الترتيب العام التقديري بعد نقاط الجولة الحالية */
-export function liveRankEstimate(livePts) {
+export function liveRankEstimate(livePts, avgOverride = null) {
   const G = ST.G, E = ST.E, hist = E.hist.current || [], N = G.totalPlayers;
   if (livePts == null || !ST.live || !N || hist.length < 2) return null;
   const done = hist.filter((h) => h.event < G.cur), last = done[done.length - 1]; if (!last || !last.overall_rank) return null;
@@ -45,7 +45,7 @@ export function liveRankEstimate(livePts) {
   const M = done.reduce((a, h) => a + (G.events.find((e) => e.id === h.event)?.avg || 0), 0);
   const z = invPhi(1 - R / N); if (Math.abs(z) < 0.05) return null;
   let sd = (T - M) / z; if (!(sd > 5)) sd = 9 * Math.sqrt(done.length);
-  const avgLive = liveAverage(ST.live) ?? 0;
+  const avgLive = avgOverride ?? liveAverage(ST.live) ?? 0;
   const sd2 = Math.sqrt(sd * sd + 12 * 12);
   const z2 = (T + livePts - (M + avgLive)) / sd2;
   const rank = Math.max(1, Math.round(N * (1 - Phi(z2))));

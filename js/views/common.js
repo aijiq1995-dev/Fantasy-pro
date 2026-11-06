@@ -91,3 +91,22 @@ export function doTransfer(outId, inId) {
 }
 export function addCompare(id) { const c = LS.get('fp_cmp', []); if (!c.includes(id)) c.push(id); LS.set('fp_cmp', c.slice(-3)); closeSheet(); window.go('compare'); }
 Object.assign(window, { openPlayer, gwDetail, toggleWatch, setCap, setVC, buyFlow, confirmT, doTransfer, addCompare });
+
+/* ---------- صفحة النادي: نتائجه، مبارياته الجاية، أفضل لاعبيه ---------- */
+window.openClub = (tid) => {
+  const G = ST.G, tm = G.teams[tid]; if (!tm) return;
+  const all = G.fxList.filter((f) => f.h === tid || f.a === tid).sort((a, b) => (a.ev || 99) - (b.ev || 99));
+  const past = all.filter((f) => f.fin).slice(-6).reverse(), next = all.filter((f) => !f.fin).slice(0, 6);
+  const res = (f) => { const home = f.h === tid, gf = home ? f.hs : f.as, ga = home ? f.as : f.hs; return gf > ga ? ['W', 'var(--good)'] : gf < ga ? ['L', 'var(--bad)'] : ['D', 'var(--mut)']; };
+  const form = past.map((f) => { const [r, c] = res(f); return `<span class="rate" style="background:${c};color:#0A0D14">${tt({ W: 'ف', L: 'خ', D: 'ت' }[r], r)}</span>`; }).join(' ');
+  const players = G.players.filter((p) => p.team === tid).sort((a, b) => b.total - a.total).slice(0, 8);
+  const mine = new Set(ST.plan?.squad || []);
+  openSheet(`${sheetHead(crest(tm.short, 44), tName(tid), `${tt('الفورم', 'Form')}: ${form || '—'}`)}
+   <div class="sec" style="margin-top:4px"><h2 style="font-size:14px">${I('i-cal', 'i', 'width:16px;height:16px')}${tt('المباريات الجاية', 'Next fixtures')}</h2></div>
+   <div class="nx5">${next.map((f) => { const home = f.h === tid, opp = home ? f.a : f.h, d = home ? f.hd : f.ad; return `<button><small>GW${f.ev}</small><span class="rate f${d}">${tShort(opp)}</span><small>${home ? t('home_s') : t('away_s')}</small></button>`; }).join('') || '<p class="mut">—</p>'}</div>
+   <div class="sec"><h2 style="font-size:14px">${I('i-history', 'i', 'width:16px;height:16px')}${tt('آخر النتائج', 'Recent results')}</h2></div>
+   <div class="list">${past.map((f) => { const [r, c] = res(f); return `<div class="row"><span class="rate" style="background:${c};color:#0A0D14">${tt({ W: 'فوز', L: 'خسارة', D: 'تعادل' }[r], r)}</span><div class="info"><b style="font-size:13px">${tName(f.h)} <span class="num">${f.hs}–${f.as}</span> ${tName(f.a)}</b><span>GW${f.ev}</span></div></div>`; }).join('') || '<p class="mut" style="padding:10px">—</p>'}</div>
+   <div class="sec"><h2 style="font-size:14px">${I('i-users', 'i', 'width:16px;height:16px')}${tt('أفضل اللاعبين', 'Top players')}</h2></div>
+   <div class="list">${players.map((p) => `<div class="row tap" onclick="openPlayer(${p.id})"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)} ${mine.has(p.id) ? `<span class="tag lime">${tt('بفريقك', 'Yours')}</span>` : ''}</b><span><span class="pos ${p.pos}">${p.pos}</span>${p.price.toFixed(1)}م · ${p.own}%</span></div><div class="col">${p.total}<small>${tt('نقطة', 'pts')}</small></div></div>`).join('')}</div>
+   <button class="btn btn-g btn-b" style="margin-top:12px" onclick="closeSheet();goClub(${tid})">${tt('كل لاعبي النادي', 'All club players')}</button>`);
+};

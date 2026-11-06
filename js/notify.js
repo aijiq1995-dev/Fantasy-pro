@@ -41,9 +41,9 @@ export function scanLive(prev, next, fxPrev, fxNext) {
   const squad = [...ST.plan.xi, ...ST.plan.bench];
   if (prev) squad.forEach((id) => {
     const a = prev[id] || {}, b = next[id] || {}, p = PM(id); if (!p) return;
-    if ((b.goals_scored || 0) > (a.goals_scored || 0)) pushNotif({ key: `g_${id}_${ST.G.cur}_${b.goals_scored}`, type: 'goal', title: tt(`⚽ هدف! ${p.name}`, `⚽ Goal! ${p.name}`), body: tt(`${b.total_points} نقطة لحد هسه`, `${b.total_points} pts so far`), icon: 'i-fire', act: `go('live')` });
-    if ((b.assists || 0) > (a.assists || 0)) pushNotif({ key: `a_${id}_${ST.G.cur}_${b.assists}`, type: 'assist', title: tt(`🅰️ صناعة: ${p.name}`, `🅰️ Assist: ${p.name}`), icon: 'i-star', act: `go('live')` });
-    if ((b.red_cards || 0) > (a.red_cards || 0)) pushNotif({ key: `r_${id}_${ST.G.cur}`, type: 'red', title: tt(`🟥 طرد: ${p.name}`, `🟥 Red card: ${p.name}`), icon: 'i-alert', act: `go('live')` });
+    if ((b.goals_scored || 0) > (a.goals_scored || 0)) pushNotif({ key: `g_${id}_${ST.G.cur}_${b.goals_scored}`, type: 'goal', title: tt(`هدف! ${p.name}`, `Goal! ${p.name}`), body: tt(`${b.total_points} نقطة لحد هسه`, `${b.total_points} pts so far`), icon: 'i-fire', act: `go('live')` });
+    if ((b.assists || 0) > (a.assists || 0)) pushNotif({ key: `a_${id}_${ST.G.cur}_${b.assists}`, type: 'assist', title: tt(`صناعة: ${p.name}`, `Assist: ${p.name}`), icon: 'i-star', act: `go('live')` });
+    if ((b.red_cards || 0) > (a.red_cards || 0)) pushNotif({ key: `r_${id}_${ST.G.cur}`, type: 'red', title: tt(`طرد: ${p.name}`, `Red card: ${p.name}`), icon: 'i-alert', act: `go('live')` });
   });
   if (fxPrev && fxNext) {
     const teams = new Set(squad.map((id) => PM(id)?.team));

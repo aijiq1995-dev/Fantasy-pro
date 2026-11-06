@@ -6,6 +6,7 @@ import { projected, analyze, captainRank, suggestions, xp, avail, dgwBgw, fixtur
 import * as FPL from '../fpl.js';
 import { pShirt } from './common.js';
 import { pricePredict, liveRankEstimate } from '../predict.js';
+import { liveCalc, rankImpact } from '../live-engine.js';
 
 let cdT = null;
 function tick() {
@@ -17,8 +18,7 @@ function tick() {
 export function liveTeamPoints() {
   const { E, live } = ST; if (!live || !E.picks || E.gw !== ST.G.cur) return null;
   const evCur = ST.G.events.find((e) => e.id === ST.G.cur); if (evCur?.fin) return null;
-  let tot = 0; E.picks.picks.forEach((pk) => { const st = live[pk.element] || {}; if (pk.multiplier > 0) tot += (st.total_points || 0) * pk.multiplier; });
-  return tot - (E.picks.entry_history?.event_transfers_cost || 0);
+  return liveCalc(E.picks, ST.G.cur)?.total ?? null;
 }
 function actions() {
   const P = ST.plan, G = ST.G; if (!P) return [];
@@ -47,7 +47,7 @@ export function vHome() {
   return `<section class="hero">
     <div class="flex between"><div style="min-width:0"><div class="mut" style="font-size:13px">${t('gw')} ${G.cur} ${livePts != null ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}</div><div class="big-num" style="font-size:44px;line-height:1.1">${gwPts ?? '—'}<span class="mut" style="font-size:14px;font-weight:500"> ${tt('نقطة', 'pts')}</span></div>${diff != null ? `<div class="${diff >= 0 ? 'up' : 'down'}" style="font-size:13px">${diff >= 0 ? '+' : ''}${diff} ${tt('عن المعدل', 'vs average')} (${ev.avg})</div>` : ''}</div>
     <button class="btn btn-g btn-sm" onclick="seasonGo(${G.cur})">${tt('تفاصيل', 'Details')}${I('i-chev', 'chev')}</button></div>
-    <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div>${(() => { const lr = liveRankEstimate(livePts); return lr ? `<div><small>${tt('الترتيب المباشر (تقدير)', 'Live rank (est.)')}</small><b style="font-size:18px">${fmt(lr.rank)}</b><em class="${lr.move >= 0 ? 'up' : 'down'}"> ${lr.move >= 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em></div>` : `<div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div>`; })()}<div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
+    <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div>${(() => { const lr = livePts != null ? liveRankEstimate(livePts, rankImpact(liveCalc(E.picks, G.cur)).safety) : null; return lr ? `<div><small>${tt('الترتيب المباشر (تقدير)', 'Live rank (est.)')}</small><b style="font-size:18px">${fmt(lr.rank)}</b><em class="${lr.move >= 0 ? 'up' : 'down'}"> ${lr.move >= 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em></div>` : `<div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div>`; })()}<div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
    </section>
    <div class="card tap" style="margin-top:10px;padding:12px 14px" onclick="go('team')"><div class="flex between"><span class="flex" style="font-size:13.5px">${I('i-clock', 'i', 'width:17px;height:17px;color:var(--acc)')}${t('deadline')} ${t('gw')} ${G.next}<span class="mut" style="font-size:12px">${fmtTime(G.deadline)}</span></span></div><div class="cd" id="cd" style="margin-top:8px"></div></div>
 
@@ -66,5 +66,5 @@ export function vHome() {
 }
 export function afterHome() {
   clearInterval(cdT); tick(); cdT = setInterval(tick, 1000);
-  if (!ST.live && ST.G.cur) FPL.loadLive(ST.G.cur).then((l) => { ST.live = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); if (ST.view === 'home' && liveTeamPoints() != null) window.render(); }).catch(() => {});
+  if (!ST.live && ST.G.cur) FPL.loadLive(ST.G.cur).then((l) => { ST.live = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); ST.liveRaw = l.elements; ST.liveRawGW = ST.G.cur; if (ST.view === 'home' && liveTeamPoints() != null) window.render(); }).catch(() => {});
 }
