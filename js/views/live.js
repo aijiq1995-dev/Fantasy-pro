@@ -1,5 +1,5 @@
 /* مركز المباريات والنقاط المباشرة */
-import { ST, PM, tName, tShort } from '../store.js';
+import { ST, PM, tName, tShort, officialRank } from '../store.js';
 import { t, tt } from '../i18n.js';
 import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML } from '../ui.js';
 import * as FPL from '../fpl.js';
@@ -19,6 +19,7 @@ async function refreshLive(force = false) {
     const fxNorm = fx.map((x) => ({ id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: x.finished || x.finished_provisional, started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] }));
     scanLive(ST.live, next, ST.G.fx[g], fxNorm);
     ST.live = next; ST.liveRaw = l.elements; ST.liveRawGW = g; ST.G.fx[g] = fxNorm; lastFetch = Date.now(); freshness();
+    if (Date.now() - (window.__entryAt || 0) > 110e3) { window.__entryAt = Date.now(); FPL.fetchEntry(ST.profile.teamId, true).then((en) => { if (en?.id) ST.E.entry = { ...ST.E.entry, ...en }; }).catch(() => {}); }
     if (!document.querySelector('.ov') && ['live', 'home', 'team', 'season'].includes(ST.view)) window.render();
   } catch (e) { if (force) toast(e.message); }
 }
@@ -79,13 +80,13 @@ function fxCard(f, myTeams) {
 }
 function myLiveBlock() {
   const calc = liveCalc(ST.E.picks, ST.G.cur); if (!calc) return '';
-  const R = rankImpact(calc), lr = liveRankEstimate(calc.total, R.safety);
+  const R = rankImpact(calc), lr = officialRank();
   const subs = calc.subs.map((x) => `${esc(PM(x.out)?.name)} ← ${esc(PM(x.in)?.name)}`).join('، ');
   const pbN = calc.rows.filter((r) => r.bonus && r.m).reduce((a, r) => a + r.bonus * r.m, 0);
   const row = (r) => { const p = PM(r.id); if (!p) return ''; const s = ST.live[r.id] || {}; const g = R.gains.find((x) => x.p.id === r.id);
     const ev = [s.goals_scored ? `${I('i-goal', 'i', 'width:12px;height:12px;vertical-align:-2px')}×${s.goals_scored}` : '', s.assists ? `A×${s.assists}` : '', s.yellow_cards ? '<i style="display:inline-block;width:8px;height:11px;background:#FACC15;border-radius:2px;vertical-align:-1px"></i>' : '', s.red_cards ? '<i style="display:inline-block;width:8px;height:11px;background:#EF4444;border-radius:2px;vertical-align:-1px"></i>' : '', r.bonus ? `<span class="tag cyan" style="padding:0 5px">+${r.bonus} ${tt('بونص مؤقت', 'prov. bonus')}</span>` : ''].filter(Boolean).join(' ');
     return `<div class="row tap" onclick="playerGW(${p.id},${ST.G.cur},${Math.max(1, r.m)})" style="${r.m === 0 ? 'opacity:.55' : ''}"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)}${r.m > 1 ? ` <span class="tag" style="background:var(--gold);color:#1C1404">×${r.m}</span>` : ''}${r.subIn ? ` <span class="tag lime">${tt('دخل تلقائياً', 'auto-in')}</span>` : ''}${r.subOut ? ` <span class="tag red">${tt('طلع', 'out')}</span>` : ''}</b><span>${r.min}′ ${ev} · EO ${g ? g.eo : '—'}%</span></div>${g ? `<div class="col" style="min-width:52px"><span class="${g.gain >= 0 ? 'up' : 'down'}">${g.gain >= 0 ? '▲' : '▼'}${Math.abs(g.gain)}</span><small>${tt('مقابل الكل', 'vs field')}</small></div>` : ''}<div class="col" style="font-size:17px;color:var(--acc)">${r.pts * Math.max(1, r.m)}<small>${tt('نقطة', 'pts')}</small></div></div>`; };
-  return `<div class="card" style="margin-bottom:12px"><div class="kv" style="margin-top:0"><div><b style="color:var(--acc);font-size:22px">${calc.total}</b><span>${tt('نقاطك المباشرة', 'Live points')}${calc.hit ? ` (−${calc.hit})` : ''}</span></div><div><b>${lr ? fmt(lr.rank) : '—'}</b><span>${tt('ترتيب تقديري', 'Est. rank')}${lr ? ` <em class="${lr.move >= 0 ? 'up' : 'down'}" style="font-style:normal">${lr.move >= 0 ? '▲' : '▼'}${fmt(Math.abs(lr.move))}</em>` : ''}</span></div><div><b>${R.safety}</b><span>${tt('نقاط الأمان', 'Safety score')}</span></div></div>
+  return `<div class="card" style="margin-bottom:12px"><div class="kv" style="margin-top:0"><div><b style="color:var(--acc);font-size:22px">${calc.total}</b><span>${tt('نقاطك المباشرة', 'Live points')}${calc.hit ? ` (−${calc.hit})` : ''}</span></div><div><b>${lr.rank ? fmt(lr.rank) : '—'}</b><span>${tt('الترتيب العام', 'Overall rank')}${lr.move ? ` <em class="${lr.move >= 0 ? 'up' : 'down'}" style="font-style:normal">${lr.move >= 0 ? '▲' : '▼'}${fmt(Math.abs(lr.move))}</em>` : ''}</span></div><div><b>${R.safety}</b><span>${tt('نقاط الأمان', 'Safety score')}</span></div></div>
     ${pbN ? `<div class="note" style="margin-top:0">${I('i-star', 'i', 'color:var(--info)')}<span>${tt(`ضمن نقاطك ${pbN} نقطة بونص مؤقت محسوبة من BPS، وتتأكد بعد نهاية المباريات.`, `Includes ${pbN} provisional bonus points from BPS.`)}</span></div>` : ''}
     ${subs ? `<div class="note">${I('i-swap', 'i', 'color:var(--acc)')}<span>${tt('تبديلات تلقائية', 'Auto-subs')}: ${subs}</span></div>` : ''}
     ${calc.capOut ? `<div class="note">${I('i-crown', 'i', 'color:var(--gold)')}<span>${tt('الكابتن ما لعب، فالنائب صار كابتن.', 'Captain did not play — vice captain doubled.')}</span></div>` : ''}

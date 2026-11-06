@@ -83,7 +83,7 @@ export async function loadEntry(id, fresh = false) {
   const pending = (Array.isArray(transfers) ? transfers : []).filter((t) => t.event > gw).sort((a, b) => new Date(a.time) - new Date(b.time));
   return { entry, hist, transfers, picks, basePicks, fhRevert, pending, gw };
 }
-export const fetchEntry = (id) => get(`entry/${id}/`, {}, { ttl: 120 });
+export const fetchEntry = (id, fresh = false) => get(`entry/${id}/`, {}, { ttl: 60, fresh });
 export const fetchHistory = (id) => get(`entry/${id}/history/`, {}, { ttl: 300 });
 export const loadSetPieceNotes = () => get('team/set-piece-notes/', {}, { ttl: 3600 });
 export const fetchTransfers = (id) => get(`entry/${id}/transfers/`, {}, { ttl: 120 });

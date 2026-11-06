@@ -23,3 +23,11 @@ export const savePlan = () => {
   if (!ST.plan) return; ST.plan.at = Date.now(); const key = planKey(); LS.set(key, ST.plan);
   clearTimeout(planT); planT = setTimeout(() => { try { window.__saveProfile?.({ plan: { key, data: ST.plan } }); } catch {} }, 1200);
 };
+
+/** الترتيب العام الرسمي من الفانتازي (مو تقدير) + التغيير عن الجولة اللي قبلها */
+export function officialRank() {
+  const en = ST.E?.entry, hist = ST.E?.hist?.current || []; if (!en) return { rank: null, move: 0 };
+  const rank = en.summary_overall_rank, curGw = en.current_event || ST.G?.cur;
+  const prev = hist.filter((h) => h.event < curGw && h.overall_rank).slice(-1)[0];
+  return { rank, move: prev && rank ? prev.overall_rank - rank : 0 };
+}

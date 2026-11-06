@@ -5,6 +5,7 @@ import { esc, I, toast, fmt, r1, LS, crest, fmtTime } from '../ui.js';
 import { xp, xpN, validXI, formation, bestXI, bestXIFormation, projected, hits, avail, fixturesFor, analyze, avgFdr } from '../engine.js';
 import { pShirt } from './common.js';
 import { pricePredict, liveRankEstimate } from '../predict.js';
+import { officialRank } from '../store.js';
 import { liveCalc, rankImpact } from '../live-engine.js';
 import * as FPL from '../fpl.js';
 import { basePlan } from '../app.js';
@@ -133,7 +134,7 @@ function liveView() {
   const rows = ['GK', 'DEF', 'MID', 'FWD'].map((pos) => on.filter((r) => PM(r.id)?.pos === pos));
   const ev = G.events.find((e) => e.id === gw), running = gw === cur && gwRunning();
   const h = (ST.E.hist.current || []).find((x) => x.event === gw), hp = (ST.E.hist.current || []).find((x) => x.event === gw - 1);
-  const R = running ? rankImpact(c) : null, lr = running ? liveRankEstimate(c.total, R.safety) : null;
+  const R = running ? rankImpact(c) : null, lr = running ? officialRank() : null;
   const total = running ? c.total : h?.points ?? c.total;
   const playing = on.filter((r) => pState(PM(r.id), gw)[0] === 'live').length, left = on.filter((r) => pState(PM(r.id), gw)[0] === 'soon').length;
   const mv = h && hp && hp.overall_rank ? hp.overall_rank - h.overall_rank : 0;
@@ -141,7 +142,7 @@ function liveView() {
   return `${gwStrip(gw)}<section class="team-hero live-hero ${running ? '' : 'done'}" style="margin-top:10px">
     <div class="flex between" style="align-items:flex-start"><div><div class="mut" style="font-size:12.5px">${t('gw')} ${gw} ${running ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : `· ${tt('منتهية', 'Finished')}`}</div>
       <div class="flex" style="gap:10px;align-items:baseline;flex-wrap:wrap"><span class="big-num" style="font-size:52px;color:var(--acc);line-height:1.05">${total}</span><span class="mut" style="font-size:13px">${tt('نقطة', 'pts')}${c.hit ? ` (−${c.hit})` : ''}</span>${ev?.avg ? `<span class="lh-avg ${total >= ev.avg ? 'up' : 'down'}">${total >= ev.avg ? '▲ +' : '▼ '}${total - ev.avg} <small>${tt('عن المعدل', 'vs avg')} ${ev.avg}</small></span>` : ''}</div></div>
-     <div class="live-side">${running ? `<div><small>${tt('يلعبون هسه', 'Playing')}</small><b>${playing}</b></div><div><small>${tt('باقي', 'To play')}</small><b>${left}</b></div>${lr ? `<div><small>${tt('ترتيب تقديري', 'Est. rank')}</small><b style="font-size:14px">${fmt(lr.rank)}</b></div>` : ''}` : `<div><small>${t('highest')}</small><b>${ev?.top ?? '—'}</b></div><div class="wide"><small>${t('overall')}</small><b>${h?.overall_rank ? fmt(h.overall_rank) : '—'}</b>${mv ? `<em class="${mv > 0 ? 'mv-up' : 'mv-down'}">${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div><div><small>${t('bench')}</small><b>${h?.points_on_bench ?? '—'}</b></div>`}</div></div>
+     <div class="live-side">${running ? `<div><small>${tt('يلعبون هسه', 'Playing')}</small><b>${playing}</b></div><div><small>${tt('باقي', 'To play')}</small><b>${left}</b></div>${lr?.rank ? `<div class="wide"><small>${tt('الترتيب العام', 'Overall rank')}</small><b>${fmt(lr.rank)}</b>${lr.move ? `<em class="${lr.move > 0 ? 'mv-up' : 'mv-down'}">${lr.move > 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em>` : ''}</div>` : ''}` : `<div><small>${t('highest')}</small><b>${ev?.top ?? '—'}</b></div><div class="wide"><small>${t('overall')}</small><b>${h?.overall_rank ? fmt(h.overall_rank) : '—'}</b>${mv ? `<em class="${mv > 0 ? 'mv-up' : 'mv-down'}">${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div><div><small>${t('bench')}</small><b>${h?.points_on_bench ?? '—'}</b></div>`}</div></div>
     ${c.subs.length || c.capOut || c.chip || (running && c.rows.some((r) => r.bonus)) || h?.event_transfers ? `<div class="flex wrap" style="gap:6px;margin-top:10px">${c.chip ? `<span class="tag violet">${I('i-bolt')}${{ bboost: tt('بنش بوست', 'Bench Boost'), '3xc': tt('كابتن ثلاثي', 'Triple C'), freehit: tt('فري هيت', 'Free Hit'), wildcard: tt('وايلد كارد', 'Wildcard'), manager: tt('المدرب', 'Manager') }[c.chip] || c.chip}</span>` : ''}${h?.event_transfers ? `<span class="tag">${I('i-swap')}${h.event_transfers} ${tt('انتقال', 'transfers')}${h.event_transfers_cost ? ` (−${h.event_transfers_cost})` : ''}</span>` : ''}${c.subs.map((x) => `<span class="tag lime">${I('i-swap')}${esc(PM(x.out)?.name)} ← ${esc(PM(x.in)?.name)}</span>`).join('')}${c.capOut ? `<span class="tag amber">${I('i-crown')}${tt('النائب صار كابتن', 'Vice captain doubled')}</span>` : ''}${running && c.rows.some((r) => r.bonus && r.m) ? `<span class="tag cyan">${I('i-star')}${tt('ضمنها بونص مؤقت', 'Incl. provisional bonus')} +${c.rows.reduce((a, r) => a + r.bonus * r.m, 0)}</span>` : ''}</div>` : ''}
    </section>
    <button class="btn btn-g btn-b btn-sm" style="margin-top:10px" onclick="openShareCard(${gw})">${I('i-send', 'i', 'width:15px;height:15px')}${tt(`شارك بطاقة الجولة ${gw}`, `Share GW${gw} card`)}</button>
