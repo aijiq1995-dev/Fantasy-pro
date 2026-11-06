@@ -5,17 +5,33 @@ import { esc, I, openSheet, closeSheet, sheetHead } from '../ui.js';
 import { xp, xpN, canBuy } from '../engine.js';
 import { labCompute, parseQuery } from '../ai.js';
 import { pShirt } from './common.js';
+import { solve } from '../solver.js';
 
 let outId = null, inId = null, H = 5, pickQ = '';
+let SH = 5, SHIT = 0, SR = null, SKEY = '';
 export function vLab() {
   const P = ST.plan; if (!P) return `<div class="empty">${t('noData')}</div>`;
   const o = outId && PM(outId), n = inId && PM(inId), R = o && n ? labCompute(outId, inId, H) : null;
   const pick = (p, side) => `<button class="pick ${p ? 'set' : ''}" onclick="labPick('${side}')" style="width:100%;text-align:start">${p ? `<div class="mini-sh">${pShirt(p)}</div><div style="flex:1;min-width:0"><b style="font-size:14px">${esc(p.name)}</b><div class="mut" style="font-size:12px">${tShort(p.team)} · ${p.price.toFixed(1)}م · ${xpN(p, ST.G.next, H)} xP/${H}</div></div>` : `<div class="pbig" style="background:var(--s3);color:var(--mut)">${I('i-plus')}</div><span class="mut">${side === 'out' ? tt('اختار لاعب تبيعه', 'Pick a player to sell') : tt('اختار لاعب تشتريه', 'Pick a player to buy')}</span>`}${I('i-chev', 'chev')}</button>`;
-  return `<div class="card"><div class="flex between" style="margin-bottom:10px"><b>${I('i-swap', 'i', 'width:18px;height:18px;vertical-align:-3px;color:var(--acc)')} ${tt('محاكاة انتقال', 'Transfer simulator')}</b><span class="mut" style="font-size:12px">${tt('البنك', 'Bank')} ${P.bank}م · ${tt('مجانية', 'FT')} ${P.ft}</span></div>
+  return solverCard() + `<div class="sec"><h2>${I('i-swap')}${tt('جرّب انتقال بنفسك', 'Try a move yourself')}</h2></div><div class="card"><div class="flex between" style="margin-bottom:10px"><b>${I('i-swap', 'i', 'width:18px;height:18px;vertical-align:-3px;color:var(--acc)')} ${tt('محاكاة انتقال', 'Transfer simulator')}</b><span class="mut" style="font-size:12px">${tt('البنك', 'Bank')} ${P.bank}م · ${tt('مجانية', 'FT')} ${P.ft}</span></div>
     <div class="stack"><div><div class="mut" style="font-size:12px;margin-bottom:4px">${tt('خارج', 'Out')}</div>${pick(o, 'out')}</div><div><div class="mut" style="font-size:12px;margin-bottom:4px">${tt('داخل', 'In')}</div>${pick(n, 'in')}</div></div>
     <div class="seg" style="margin-top:12px">${[1, 3, 5, 8].map((h) => `<button class="${H === h ? 'on' : ''}" onclick="labH(${h})">${h} ${h === 1 ? tt('جولة', 'GW') : tt('جولات', 'GWs')}</button>`).join('')}</div></div>
    ${R ? result(R) : `<p class="mut" style="font-size:13px;margin:10px 2px">${tt('يحسب الفرق بالنقاط المتوقعة جولة بجولة، وإذا ما عندك انتقال مجاني يخصم 4 ويحسبلك بأي جولة تسترجعها.', 'Computes xP difference per GW; with no free transfer it deducts 4 and finds the breakeven GW.')}</p>`}
    <div class="sec"><h2>${I('i-crown')}${tt('مصفوفة الكابتن', 'Captain matrix')}</h2><span class="mut" style="font-size:12px">${tt('النقاط المتوقعة ×2', 'xP ×2')}</span></div>${capMatrix()}`;
+}
+function solverCard() {
+  const P = ST.plan, key = `${P.squad.join(',')}|${P.bank}|${P.ft}|${SH}|${SHIT}`;
+  if (SR && SKEY !== key) SR = null;
+  const nm = (id) => esc(PM(id)?.name || '?');
+  const body = !SR ? `<p class="mut" style="font-size:12.5px;line-height:1.7;margin:8px 0 0">${tt('يحسب أفضل خطة انتقالات للجولات الجاية لفريقك أنت: بأسعار البيع الحقيقية، والبنك، والانتقالات المجانية (يدّخرها إذا أحسن)، وحد 3 من النادي، ويختار الكابتن لكل جولة.', 'Finds the best multi-GW transfer plan for your squad: real selling prices, bank, banked FTs, club limits, and captaincy.')}</p>`
+    : `<div class="sv-sum"><div><b class="num count" data-v="${SR.gain}">${SR.gain > 0 ? '+' : ''}${SR.gain}</b><span>${tt('نقاط زيادة', 'Extra pts')}</span></div><div><b class="num">${SR.total}</b><span>${tt('المتوقع بالخطة', 'Plan xP')}</span></div><div><b class="num">${SR.hold}</b><span>${tt('بدون انتقالات', 'No moves')}</span></div><div><b class="num">${SR.hits ? '−' + SR.hits : 0}</b><span>${tt('خصم', 'Hits')}</span></div></div>
+      <div class="sv-steps">${SR.steps.map((st, i) => `<div class="sv-step" style="--d:${i * 70}ms"><div class="sv-gw"><small>${tt('جولة', 'GW')}</small><b>${st.gw}</b></div><div style="flex:1;min-width:0">${st.tr.length ? st.tr.map(([o, n]) => `<div class="sv-tr"><span class="down">${nm(o)}</span>${I('i-back', 'i', 'width:14px;height:14px;opacity:.6')}<b class="up">${nm(n)}</b></div>`).join('') : `<div class="sv-tr mut">${I('i-clock', 'i', 'width:14px;height:14px')} ${tt(`ادّخر الانتقال (يصير عندك ${Math.min(5, st.ftBefore + 1)})`, `Bank FT (→ ${Math.min(5, st.ftBefore + 1)})`)}</div>`}
+        <div class="mut" style="font-size:11.5px;margin-top:3px">${I('i-crown', 'i', 'width:12px;height:12px;vertical-align:-2px;color:var(--gold)')} ${nm(st.cap)} · ${st.pts.toFixed(1)} xP${st.hit ? ` · <span class="down">−${st.hit}</span>` : st.tr.length ? ` · ${tt('مجاني', 'free')}` : ''}</div></div></div>`).join('')}</div>
+      ${SR.steps[0].tr.length ? `<button class="btn btn-p btn-b" style="margin-top:10px" onclick="svApply()">${I('i-check')}${tt(`طبّق انتقالات الجولة ${SR.steps[0].gw} على خطتي`, `Apply GW${SR.steps[0].gw} moves to my plan`)}</button>` : `<div class="verdict go" style="margin-top:10px">${I('i-check')}${tt('أحسن شي هالجولة: لا تسوي انتقال وادّخره', 'Best now: hold and bank the transfer')}</div>`}
+      <p class="mut" style="font-size:11px;margin-top:8px">${tt(`بنهاية الخطة: ${SR.ftEnd} انتقال مجاني · البنك ${SR.bankEnd.toFixed(1)}م`, `End: ${SR.ftEnd} FT · bank £${SR.bankEnd.toFixed(1)}m`)}</p>`;
+  return `<div class="card sv-card"><div class="flex between"><b>${I('i-sparkle', 'i', 'width:18px;height:18px;vertical-align:-3px;color:var(--acc)')} ${tt('الحلّال الذكي', 'Smart solver')}</b><span class="mut" style="font-size:12px">${tt('البنك', 'Bank')} ${P.bank}م · ${tt('مجانية', 'FT')} ${P.ft}</span></div>
+    <div class="flex" style="gap:8px;margin-top:10px;flex-wrap:wrap"><div class="seg" style="flex:1;min-width:170px">${[3, 5, 6].map((h) => `<button class="${SH === h ? 'on' : ''}" onclick="svH(${h})">${h} ${tt('جولات', 'GWs')}</button>`).join('')}</div><div class="seg">${[[0, tt('بدون خصم', 'No hits')], [1, '−4'], [2, '−8']].map(([v, l]) => `<button class="${SHIT === v ? 'on' : ''}" onclick="svHit(${v})">${l}</button>`).join('')}</div></div>
+    ${body}<button class="btn ${SR ? 'btn-g' : 'btn-p'} btn-b" id="svBtn" style="margin-top:10px" onclick="svRun(this)">${I('i-sparkle')}${SR ? tt('أعد الحساب', 'Recalculate') : tt('احسب أفضل خطة', 'Find best plan')}</button></div>`;
 }
 function result(R) {
   if (!R.valid) return `<div class="verdict no" style="margin-top:12px">${I('i-x')}${esc(R.reason)}</div>`;
@@ -44,6 +60,10 @@ function pickSheet(side) {
    <div class="list" id="labList">${L.map((p) => { const bad = side === 'in' && o ? canBuy(P, o.id, p.id) : ''; return `<div class="row tap" onclick="labSet('${side}',${p.id})" style="${bad ? 'opacity:.45' : ''}"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)}</b><span>${tShort(p.team)} · ${p.price.toFixed(1)}م${bad ? ' · ' + esc(bad) : ''}</span></div><div class="col" style="color:var(--acc)">${xpN(p, G.next, H)}<small>xP/${H}</small></div></div>`; }).join('')}</div>`;
 }
 Object.assign(window, {
+  svH: (h) => { SH = h; SR = null; window.render(); },
+  svHit: (v) => { SHIT = v; SR = null; window.render(); },
+  svRun: (b) => { b.disabled = true; b.innerHTML = tt('جارِ الحساب…', 'Solving…'); setTimeout(() => { try { const P = ST.plan; SR = solve({ H: SH, maxHits: SHIT }); SKEY = `${P.squad.join(',')}|${P.bank}|${P.ft}|${SH}|${SHIT}`; } catch (e) { console.error(e); } window.render(); }, 30); },
+  svApply: () => { if (!SR) return; SR.steps[0].tr.forEach(([o, n]) => window.doTransfer(o, n)); SR = null; window.go('team'); },
   labPick: (side) => { if (side === 'in' && !outId) return window.labPick('out'); pickQ = ''; openSheet(pickSheet(side)); },
   labQ: (v) => { pickQ = v; const tmp = document.createElement('div'); tmp.innerHTML = pickSheet('in'); const nl = tmp.querySelector('#labList'), ol = document.getElementById('labList'); if (nl && ol) ol.innerHTML = nl.innerHTML; },
   labSet: (side, id) => { if (side === 'out') { outId = id; inId = null; closeSheet(); window.render(); setTimeout(() => window.labPick('in'), 150); } else { inId = id; closeSheet(); window.render(); } },

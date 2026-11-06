@@ -554,3 +554,30 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .dc-gw.ok{border-color:rgba(52,211,153,.45)}
 .dc-gw.ok .dc-bar i{background:var(--acc)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ===== v3.8 Solver ===== */
+.sv-card{background:linear-gradient(160deg,rgba(52,211,153,.10),transparent 55%),var(--s1);border-color:rgba(52,211,153,.25)}
+.sv-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.sv-sum div{background:var(--s2);border-radius:12px;padding:10px 6px;text-align:center}
+.sv-sum b{display:block;font-size:18px}
+.sv-sum div:first-child b{color:var(--acc);font-size:21px}
+.sv-sum span{font-size:11px;color:var(--mut)}
+.sv-steps{margin-top:12px;display:flex;flex-direction:column;gap:8px;position:relative}
+.sv-step{display:flex;gap:12px;align-items:flex-start;background:var(--s2);border-radius:14px;padding:10px 12px;animation:fadeUp .45s both;animation-delay:var(--d)}
+.sv-gw{width:42px;flex:none;text-align:center;border-radius:10px;background:var(--s3);padding:4px 0}
+.sv-gw small{display:block;font-size:10px;color:var(--mut)}
+.sv-gw b{font-family:Inter,sans-serif;font-size:17px}
+.sv-tr{display:flex;align-items:center;gap:6px;font-size:13.5px;flex-wrap:wrap}
+
+/* ===== v3.8 Decision review ===== */
+.rv-card{background:linear-gradient(160deg,rgba(96,165,250,.10),transparent 55%),var(--s1)}
+.rv-grade{--p:0;--c:var(--acc);width:64px;height:64px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),var(--s3) 0);position:relative}
+.rv-grade::before{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--s1)}
+.rv-grade b{position:relative;font-family:Inter,sans-serif;font-size:22px;color:var(--c)}
+.rv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 8px}
+.rv-kpis div{background:var(--s2);border-radius:12px;padding:10px 6px;text-align:center}
+.rv-kpis b{display:block;font-size:20px}
+.rv-kpis span{font-size:11px;color:var(--mut)}
+.rv-line{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.7;margin-top:6px}
+.rv-det{margin-top:10px}
+.rv-det summary{cursor:pointer;font-size:13px;color:var(--acc);padding:6px 0}

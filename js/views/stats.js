@@ -18,7 +18,42 @@ async function loadDeep() {
   const caps = gws.map((g) => { const p = picks[g]; if (!p) return null; const c = p.picks.find((x) => x.is_captain); return c ? { g, id: c.element, pts: ptsOf(c.element, g), mult: c.multiplier, chip: p.active_chip } : null; }).filter(Boolean);
   const cur = ST.G.cur;
   const trs = (ST.E.transfers || []).filter((x) => PM(x.element_in) && PM(x.element_out)).map((x) => { let gin = 0, gout = 0; for (let g = x.event; g <= cur; g++) { gin += ptsOf(x.element_in, g); gout += ptsOf(x.element_out, g); } return { ...x, gin, gout, net: gin - gout }; });
-  deep = { picks, caps, trs }; loading = false; if (ST.view === 'stats' || ST.view === 'achievements') window.render();
+  // مراجعة القرارات: بيانات كل جولة (نقاط كل لاعب) حتى نقارن الكابتن والدكة بالأفضل
+  const lives = {};
+  for (let i = 0; i < gws.length; i += 4) { const part = await Promise.all(gws.slice(i, i + 4).map((g) => FPL.loadLive(g).then((l) => [g, Object.fromEntries(l.elements.map((e) => [e.id, e.stats]))]).catch(() => [g, null]))); part.forEach(([g, l]) => (lives[g] = l)); }
+  const review = gws.map((g) => {
+    const pk = picks[g], L = lives[g]; if (!pk || !L) return null;
+    const pts = (id) => L[id]?.total_points || 0, mins = (id) => L[id]?.minutes || 0;
+    const ps = [...pk.picks].sort((a, b) => a.position - b.position);
+    const chip = pk.active_chip, xi = ps.filter((x) => x.position <= 11), bench = ps.filter((x) => x.position > 11);
+    const cap = ps.find((x) => x.is_captain), capPts = cap ? pts(cap.element) : 0, mult = cap?.multiplier || 2;
+    const played = xi.filter((x) => mins(x.element) > 0);
+    const bestCap = (played.length ? played : xi).reduce((a, x) => (pts(x.element) > pts(a.element) ? x : a), xi[0]);
+    const capLost = cap && cap.multiplier > 0 ? Math.max(0, pts(bestCap.element) - capPts) * ((mult || 2) - 1) : 0;
+    // الدكة: أفضل لاعب قاعد مقابل أضعف لاعب أساسي بنفس المركز (بدون البنش بوست)
+    let benchLost = 0;
+    if (chip !== 'bboost') { const pos = (id) => PM(id)?.pos; const sw = []; bench.filter((b) => b.multiplier === 0 && pos(b.element) !== 'GK').forEach((b) => { const cand = xi.filter((x) => x.multiplier > 0 && pos(x.element) === pos(b.element) && !sw.includes(x.element)).sort((a, c) => pts(a.element) - pts(c.element))[0]; if (cand && pts(b.element) > pts(cand.element)) { benchLost += pts(b.element) - pts(cand.element); sw.push(cand.element); } }); }
+    const h = hist.find((x) => x.event === g) || {};
+    return { g, pts: h.points ?? null, chip, cap: cap?.element, capPts: capPts * (cap?.multiplier || 1), best: bestCap?.element, bestPts: pts(bestCap?.element), capLost, benchLost, hit: h.event_transfers_cost || 0 };
+  }).filter(Boolean);
+  deep = { picks, caps, trs, review }; loading = false; if (ST.view === 'stats' || ST.view === 'achievements') window.render();
+}
+function reviewCard(R, trs, busy) {
+  if (!R) return `<div class="card rv-card"><b>${I('i-target', 'i', 'width:18px;height:18px;vertical-align:-3px;color:var(--acc)')} ${tt('مراجعة قراراتك', 'Decision review')}</b><div class="aiload" style="margin-top:10px"><i></i><i></i><i></i><span>${tt('جارِ تحليل كل جولاتك…', 'Analysing every gameweek…')}</span></div></div>`;
+  const capLost = R.reduce((a, r) => a + r.capLost, 0), benchLost = R.reduce((a, r) => a + r.benchLost, 0), hits = R.reduce((a, r) => a + r.hit, 0);
+  const trNet = trs.reduce((a, x) => a + x.net, 0) - hits, actual = R.reduce((a, r) => a + (r.pts || 0), 0);
+  const eff = actual ? Math.round((actual / (actual + capLost + benchLost)) * 100) : 0;
+  const grade = eff >= 95 ? ['A+', 'var(--acc)'] : eff >= 91 ? ['A', 'var(--acc)'] : eff >= 87 ? ['B', '#60A5FA'] : eff >= 82 ? ['C', 'var(--gold)'] : ['D', 'var(--bad)'];
+  const capRight = R.filter((r) => r.capLost === 0).length;
+  const worst = [...R].sort((a, b) => b.capLost + b.benchLost - (a.capLost + a.benchLost))[0];
+  const line = (ic, col, txt) => `<div class="rv-line">${I(ic, 'i', `width:16px;height:16px;color:${col};flex:none`)}<span>${txt}</span></div>`;
+  return `<div class="card rv-card"><div class="flex" style="gap:14px;align-items:center"><div class="rv-grade" style="--c:${grade[1]};--p:${eff}"><b>${grade[0]}</b></div><div style="flex:1"><b style="font-size:15px">${tt('مراجعة قراراتك', 'Decision review')}</b><div class="mut" style="font-size:12.5px;line-height:1.6">${tt(`كفاءتك <b class="num" style="color:var(--txt)">${eff}%</b> — يعني جبت هالنسبة من أقصى نقاط كانت ممكنة بنفس لاعبينك`, `Efficiency <b>${eff}%</b> of the max possible with your own players`)}</div></div></div>
+   <div class="rv-kpis"><div><b class="num down count" data-v="${capLost}">${capLost}</b><span>${tt('ضاعت بالكابتن', 'Lost on captain')}</span></div><div><b class="num down count" data-v="${benchLost}">${benchLost}</b><span>${tt('ضاعت بالتشكيلة', 'Lost on bench')}</span></div><div><b class="num ${trNet >= 0 ? 'up' : 'down'}">${trNet >= 0 ? '+' : ''}${trNet}</b><span>${tt('صافي الانتقالات', 'Transfers net')}</span></div></div>
+   ${line('i-crown', 'var(--gold)', tt(`اخترت الكابتن الصح <b>${capRight}</b> من <b>${R.length}</b> جولات`, `Right captain in ${capRight}/${R.length} GWs`))}
+   ${worst && worst.capLost + worst.benchLost > 0 ? line('i-alert', 'var(--bad)', tt(`أكثر جولة ضيّعت بيها: <b>الجولة ${worst.g}</b> (${worst.capLost + worst.benchLost} نقطة)${worst.capLost ? ` — ${esc(PM(worst.best)?.name || '')} جاب ${worst.bestPts} وكابتنك ${esc(PM(worst.cap)?.name || '')} جاب ${worst.capPts / Math.max(1, (worst.chip === '3xc' ? 3 : 2))}` : ''}`, `Worst GW: ${worst.g}`)) : ''}
+   ${line('i-swap', trNet >= 0 ? 'var(--acc)' : 'var(--bad)', tt(`انتقالاتك جابت <b>${trNet >= 0 ? '+' : ''}${trNet}</b> نقطة صافي بعد خصم ${hits} نقطة`, `Transfers net ${trNet} after ${hits} hits`))}
+   <details class="rv-det"><summary>${tt('تفصيل كل جولة', 'Per-gameweek detail')}</summary><div class="scroll-x"><table class="tbl"><thead><tr><th>${t('gw')}</th><th>${tt('النقاط', 'Pts')}</th><th>${tt('الكابتن', 'Captain')}</th><th>${tt('الأفضل', 'Best')}</th><th>${tt('ضاع', 'Lost')}</th></tr></thead><tbody>${R.map((r) => `<tr><td>${r.g}${r.chip ? ` <span class="tag" style="font-size:10px">${r.chip}</span>` : ''}</td><td class="num">${r.pts ?? '—'}</td><td>${esc(PM(r.cap)?.name || '—')}</td><td class="${r.capLost ? 'up' : 'mut'}">${r.capLost ? esc(PM(r.best)?.name || '') + ` (${r.bestPts})` : '✓'}</td><td class="num ${r.capLost + r.benchLost ? 'down' : ''}">${r.capLost + r.benchLost || 0}</td></tr>`).join('')}</tbody></table></div></details>
+   ${busy ? '' : ''}</div>`;
 }
 export function vStats() {
   const G = ST.G, hist = ST.E.hist.current || [];
@@ -32,7 +67,7 @@ export function vStats() {
   const goodTr = trs.filter((x) => x.net > 0).length;
   const sortedTr = [...trs].sort((a, b) => b.net - a.net);
   const k = (v, l, cls = '') => `<div class="card stat"><span class="k">${l}</span><span class="v num ${cls}">${v}</span></div>`;
-  return `<div class="grid g4">${k(fmt(ST.E.entry.summary_overall_points), t('total'))}${k((diff >= 0 ? '+' : '') + Math.round(diff), tt('مقارنة بالمعدل', 'vs average'), diff >= 0 ? 'up' : 'down')}${k(bench, tt('نقاط ضاعت بالدكة', 'Bench points lost'), 'down')}${k(hitsCost ? '−' + hitsCost : 0, tt('خصم الانتقالات', 'Hit cost'))}</div>
+  return reviewCard(deep?.review, trs, loading) + `<div class="sec"><h2>${I('i-chart')}${tt('أرقامك', 'Your numbers')}</h2></div><div class="grid g4">${k(fmt(ST.E.entry.summary_overall_points), t('total'))}${k((diff >= 0 ? '+' : '') + Math.round(diff), tt('مقارنة بالمعدل', 'vs average'), diff >= 0 ? 'up' : 'down')}${k(bench, tt('نقاط ضاعت بالدكة', 'Bench points lost'), 'down')}${k(hitsCost ? '−' + hitsCost : 0, tt('خصم الانتقالات', 'Hit cost'))}</div>
    <div class="sec"><h2>${I('i-chart')}${tt('تطور النقاط مقابل المعدل', 'Points vs average')}</h2></div><div class="card">${lineChart(labels, [{ name: tt('نقاطك', 'You'), color: '#34D399', vals: hist.map((h) => h.points) }, { name: t('avg'), color: '#94A3B8', vals: avg }, { name: t('highest'), color: '#10B981', vals: hist.map((h) => G.events.find((e) => e.id === h.event)?.top ?? null) }])}</div>
    <div class="sec"><h2>${I('i-trophy')}${tt('تطور الترتيب', 'Rank trend')}</h2></div><div class="card">${lineChart(labels, [{ name: t('overall'), color: '#60A5FA', vals: hist.map((h) => h.overall_rank) }], { invert: true, fmtV: fmt })}</div>
    <div class="sec"><h2>${I('i-bench')}${tt('نقاط الدكة لكل جولة', 'Bench points per GW')}</h2></div><div class="card">${barChart(labels, hist.map((h) => h.points_on_bench || 0), { h: 130, color: 'linear-gradient(180deg,#F59E0B,#EF4444)' })}</div>
