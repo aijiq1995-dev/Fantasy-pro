@@ -100,7 +100,7 @@ async function onSignedIn(u) {
   loadAll();
 }
 export async function loadAll(fresh = false) {
-  splash(tt('جارِ جلب بيانات فريقك من الفانتازي…', 'Fetching your FPL data…'));
+  const silent = !!ST.G; if (silent) { toast(tt('جارِ التحديث…', 'Refreshing…')); document.body.classList.add('busy'); } else splash(tt('جارِ جلب بيانات فريقك من الفانتازي…', 'Fetching your FPL data…'));
   try {
     const [G, E] = await Promise.all([FPL.loadGame(fresh), FPL.loadEntry(ST.profile.teamId, fresh)]);
     if (!G.next) G.next = G.cur || 1;
@@ -111,8 +111,10 @@ export async function loadAll(fresh = false) {
     ST.broadcast = bc; ST.overrides = ov || {}; ST.scoring = sc;
     AU.touchProfile(ST.user.uid, { teamName: E.entry.name });
     scanStatic();
-    buildNav(); show('#app'); go(location.hash.slice(1) || 'home'); startLivePolling();
+    buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); toast(tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
   } catch (ex) {
+    document.body.classList.remove('busy');
+    if (silent) { toast(ex.message); return; }
     AU.logError(ST.user?.uid, ex.message, 'loadAll');
     splash(`${esc(ex.message)}<br><button class="btn btn-p btn-sm" style="margin-top:12px" onclick="loadAll(true)">${tt('إعادة المحاولة', 'Retry')}</button> <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="changeTeam()">${tt('تغيير رقم الفريق', 'Change Team ID')}</button>`);
   }
@@ -149,24 +151,49 @@ export function buildNav() {
 window.addEventListener('keydown', (e) => { if (e.key === '/' && ST.G && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); go('search'); } });
 export function updateBadge() { const n = unreadCount(); $('#bellDot').classList.toggle('hidden', !n); const sb = $('#sideBadge'); if (sb) sb.textContent = n || ''; }
 window.addEventListener('fp-notif', updateBadge);
-export function go(v) {
+/* تنقّل بسجل حقيقي: زر رجوع بكل صفحة + سحب الرجوع بالآيفون وزر الرجوع بالأندرويد */
+const NAV_STACK = [];
+export function go(v, opts = {}) {
   if (v === 'coach') v = 'search';
   if (!VIEWS[v]) v = 'home';
   if (v === 'admin' && !ST.admin) v = 'home';
+  const prev = ST.view;
+  if (!opts.back && prev && prev !== v) { NAV_STACK.push({ v: prev, y: window.scrollY }); if (NAV_STACK.length > 30) NAV_STACK.shift(); try { history.pushState({ v }, '', '#' + v); } catch {} }
+  else if (!prev) { try { history.replaceState({ v }, '', '#' + v); } catch {} }
   ST.view = v;
-  try { if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v); } catch {}
   $('#tbSubT').textContent = t(v === 'more' ? 'more' : v) + (ST.G ? ` · ${t('gw')} ${ST.G.next}` : '');
-  render(); window.scrollTo({ top: 0 });
+  updateBack();
+  render(); window.scrollTo({ top: opts.y || 0 });
+}
+function updateBack() { const b = $('#tbBack'); if (b) b.classList.toggle('hidden', !NAV_STACK.length && ST.view === 'home'); }
+export function goBack() {
+  if (document.querySelector('.ov')) return window.closeSheet();
+  if (window.__backHook && window.__backHook()) return;
+  if (NAV_STACK.length) return history.back();
+  if (ST.view !== 'home') go('home', { back: true });
+}
+window.addEventListener('popstate', () => {
+  if (!ST.G) return;
+  if (document.querySelector('.ov')) { window.closeSheet(); try { history.pushState({ v: ST.view }, '', '#' + ST.view); } catch {} return; }
+  if (window.__backHook && window.__backHook()) { try { history.pushState({ v: ST.view }, '', '#' + ST.view); } catch {} return; }
+  const e = NAV_STACK.pop(); const v = e?.v || location.hash.slice(1) || 'home';
+  go(v, { back: true, y: e?.y || 0 });
+});
+window.goBack = goBack;
+let lastCount = '';
+function countUp() {
+  if (lastCount === ST.view || matchMedia('(prefers-reduced-motion: reduce)').matches) { lastCount = ST.view; return; } lastCount = ST.view;
+  document.querySelectorAll('#view .count[data-v]').forEach((el) => { const v = +el.dataset.v, dec = String(el.dataset.v).includes('.') ? 1 : 0, t0 = performance.now(); if (!isFinite(v)) return;
+    const step = (now) => { const k = Math.min(1, (now - t0) / 650), e = 1 - Math.pow(1 - k, 3); el.textContent = (v * e).toFixed(dec); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
 }
 export function render() {
   if (!ST.G) return;
   $$('.nb').forEach((b) => b.classList.toggle('on', b.dataset.v === ST.view));
   const inMore = !['home', 'team', 'players', 'season'].includes(ST.view);
   $$('#bnav button').forEach((b) => b.classList.toggle('on', b.dataset.v === ST.view || (b.dataset.v === 'more' && inMore)));
-  try { $('#view').innerHTML = (window.__EMBED && ST.view === 'home' ? window.__EMBED.note : '') + VIEWS[ST.view](); AFTER[ST.view] && AFTER[ST.view](); }
+  try { $('#view').innerHTML = (window.__EMBED && ST.view === 'home' ? window.__EMBED.note : '') + VIEWS[ST.view](); AFTER[ST.view] && AFTER[ST.view](); countUp(); }
   catch (e) { console.error(e); AU.logError(ST.user?.uid, e.message, 'render:' + ST.view); $('#view').innerHTML = `<div class="empty">${I('i-alert', 'i', 'width:40px;height:40px')}<b>${tt('صار خطأ بهذا القسم', 'Something went wrong')}</b><p class="mut">${esc(e.message)}</p></div>`; }
 }
-window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (ST.G && v && v !== ST.view) go(v); });
 window.addEventListener('error', (e) => AU.logError(ST.user?.uid, e.message, e.filename + ':' + e.lineno));
 
 /* ---------- أفعال عامة ---------- */

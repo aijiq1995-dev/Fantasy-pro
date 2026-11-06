@@ -120,3 +120,5 @@ window.lgLive = async () => {
   } catch (e) { lgLiveRows = { err: e.message }; }
   lgLiveBusy = false; window.render();
 };
+
+window.__backHook = () => { if (ST.view === 'leagues' && open) { window.openLg(null); return true; } return false; };
