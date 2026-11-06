@@ -7,12 +7,13 @@ import * as AU from '../auth.js';
 import { PM } from '../store.js';
 import { liveCalc } from '../live-engine.js';
 
+let h2hOpen = null, h2hData = null, h2hGW = null, h2hTab = 'table', h2hMatches = {}, h2hLive = {};
 let tab = 'fpl', appLeagues = null, open = null, lgData = null, lgPage = 1, appData = {}, lgLiveRows = null, lgLiveBusy = false;
 export function vLeagues() {
   const lgs = ST.E.entry.leagues?.classic || [];
   const row = (l) => `<div class="row tap" onclick="openLg(${l.id})"><div class="mini" style="display:grid;place-items:center;border-radius:14px;background:${l.entry_rank === 1 ? 'rgba(52,211,153,.2)' : l.league_type === 'x' ? 'rgba(99,102,241,.18)' : 'rgba(96,165,250,.12)'};font-size:20px">${l.entry_rank === 1 ? I('i-crown', 'i', 'color:var(--gold)') : l.entry_rank <= 3 ? I('i-trophy', 'i', 'color:var(--acc)') : I('i-globe', 'i', 'color:var(--mut)')}</div><div class="info"><b>${esc(l.name)}</b><span>${l.rank_count ? fmt(l.rank_count) + ' ' + tt('مدرب', 'managers') : ''}</span></div><div class="col">${fmt(l.entry_rank)}<small>${l.entry_last_rank ? (l.entry_rank < l.entry_last_rank ? '<span class="up">▲</span>' : l.entry_rank > l.entry_last_rank ? '<span class="down">▼</span>' : '•') : ''}</small></div></div>`;
   let body = '';
-  if (tab === 'fpl') body = open && lgData ? fplTable() : `<div class="sec"><h2>${I('i-users')}${tt('الدوريات الخاصة', 'Private leagues')}</h2></div>${lgs.filter((l) => l.league_type !== 's').map(row).join('') || `<p class="mut">—</p>`}<div class="sec"><h2>${I('i-globe')}${tt('الدوريات العامة', 'Public leagues')}</h2></div>${lgs.filter((l) => l.league_type === 's').map(row).join('')}`;
+  if (tab === 'fpl') body = h2hOpen ? h2hView() : open && lgData ? fplTable() : `<div class="sec"><h2>${I('i-users')}${tt('الدوريات الخاصة', 'Private leagues')}</h2></div>${lgs.filter((l) => l.league_type !== 's').map(row).join('') || `<p class="mut">—</p>`}${h2hList()}<div class="sec"><h2>${I('i-globe')}${tt('الدوريات العامة', 'Public leagues')}</h2></div>${lgs.filter((l) => l.league_type === 's').map(row).join('')}`;
   else body = appBody();
   return `<div class="seg" style="margin-bottom:12px"><button class="${tab === 'fpl' ? 'on' : ''}" onclick="lgTab('fpl')">${tt('دورياتي بالفانتازي', 'My FPL leagues')}</button><button class="${tab === 'app' ? 'on' : ''}" onclick="lgTab('app')">${tt('دوريات التطبيق', 'App leagues')}</button></div>${body}`;
 }
@@ -121,4 +122,58 @@ window.lgLive = async () => {
   lgLiveBusy = false; window.render();
 };
 
-window.__backHook = () => { if (ST.view === 'leagues' && open) { window.openLg(null); return true; } return false; };
+window.__backHook = () => { if (ST.view === 'leagues' && h2hOpen) { window.openH2H(null); return true; } if (ST.view === 'leagues' && open) { window.openLg(null); return true; } return false; };
+
+/* ---------- دوريات المواجهات (H2H) ---------- */
+function h2hList() {
+  const L = ST.E.entry.leagues?.h2h || [];
+  if (!L.length) return '';
+  return `<div class="sec"><h2>${I('i-swords')}${tt('دوريات المواجهات (H2H)', 'Head-to-head leagues')}</h2></div><div class="list">${L.map((l) => `<div class="row tap" onclick="openH2H(${l.id})"><div class="pbig" style="background:rgba(167,139,250,.12);color:var(--violet)">${I('i-swords', 'i', 'width:19px;height:19px')}</div><div class="info"><b>${esc(l.name)}</b><span>${tt('ترتيبك', 'Your rank')} ${l.entry_rank ?? '—'}${l.rank_count ? ` ${tt('من', 'of')} ${fmt(l.rank_count)}` : ''}</span></div>${l.entry_last_rank && l.entry_rank && l.entry_rank !== l.entry_last_rank ? `<span class="${l.entry_rank < l.entry_last_rank ? 'up' : 'down'}" style="font-size:13px">${l.entry_rank < l.entry_last_rank ? '▲' : '▼'}${Math.abs(l.entry_last_rank - l.entry_rank)}</span>` : ''}${I('i-chev', 'chev')}</div>`).join('')}</div>`;
+}
+function h2hView() {
+  const d = h2hData, me = ST.profile.teamId, G = ST.G;
+  if (!d) return `<div class="card aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>`;
+  if (d.err) return `<div class="banner"><b>${esc(d.name || '')}</b><button class="btn btn-g btn-sm" onclick="openH2H(null)">${t('back')}</button></div><div class="note">${I('i-info', 'i', 'color:var(--info)')}<span>${esc(d.err)}</span></div>`;
+  const rows = d.standings?.results || [], my = rows.find((r) => r.entry === me);
+  const gw = h2hGW, M = h2hMatches[gw];
+  const myM = (M?.results || []).find((m) => m.entry_1_entry === me || m.entry_2_entry === me);
+  const matchCard = (m) => { const L = h2hLive[gw]?.[m.id]; const p1 = L ? L[0] : m.entry_1_points, p2 = L ? L[1] : m.entry_2_points; const mine = m.entry_1_entry === me || m.entry_2_entry === me; const started = G.events.find((e) => e.id === gw && new Date(e.deadline) < new Date());
+    const w1 = p1 > p2, w2 = p2 > p1;
+    return `<div class="h2h-m ${mine ? 'mine' : ''}"><button class="h2h-t ${w1 && started ? 'win' : ''}" onclick="rivalSheet(${m.entry_1_entry},'${esc(m.entry_1_name).replace(/'/g, '')}')"><b>${esc(m.entry_1_name)}</b><small>${esc(m.entry_1_player_name || '')}</small></button><div class="h2h-s">${started ? `<span class="score">${p1 ?? 0}</span><i>–</i><span class="score">${p2 ?? 0}</span>` : `<span class="mut">VS</span>`}${L ? `<small class="livebadge" style="font-size:10px">${tt('مباشر', 'Live')}</small>` : ''}</div><button class="h2h-t end ${w2 && started ? 'win' : ''}" onclick="rivalSheet(${m.entry_2_entry},'${esc(m.entry_2_name).replace(/'/g, '')}')"><b>${esc(m.entry_2_name)}</b><small>${esc(m.entry_2_player_name || '')}</small></button></div>`; };
+  return `<div class="banner"><b>${I('i-swords', 'i', 'width:17px;height:17px;vertical-align:-3px;color:var(--violet)')} ${esc(d.standings ? d.league?.name || d.name : d.name)}</b><button class="btn btn-g btn-sm" onclick="openH2H(null)">${t('back')}</button></div>
+   ${my ? `<div class="h2h-me"><div><small>${tt('ترتيبك', 'Rank')}</small><b>${my.rank}</b></div><div><small>${tt('فوز', 'W')}</small><b class="up">${my.matches_won}</b></div><div><small>${tt('تعادل', 'D')}</small><b>${my.matches_drawn}</b></div><div><small>${tt('خسارة', 'L')}</small><b class="down">${my.matches_lost}</b></div><div><small>${tt('النقاط', 'Pts')}</small><b style="color:var(--acc)">${my.total}</b></div></div>` : ''}
+   <div class="tabs2" style="margin-top:12px"><button class="${h2hTab === 'table' ? 'on' : ''}" onclick="h2hTabSet('table')">${tt('الترتيب', 'Table')}</button><button class="${h2hTab === 'm' ? 'on' : ''}" onclick="h2hTabSet('m')">${tt('المباريات', 'Fixtures')}</button></div>
+   ${h2hTab === 'table' ? `<div class="card scroll-x"><table class="tbl"><thead><tr><th>#</th><th>${tt('الفريق', 'Team')}</th><th class="n">${tt('ف', 'W')}</th><th class="n">${tt('ت', 'D')}</th><th class="n">${tt('خ', 'L')}</th><th class="n">${tt('مجموع', 'PF')}</th><th class="n">${tt('نقاط', 'Pts')}</th></tr></thead><tbody>${rows.map((r) => `<tr class="${r.entry === me ? 'me' : ''}" onclick="rivalSheet(${r.entry},'${esc(r.entry_name).replace(/'/g, '')}')"><td>${r.rank}${r.last_rank && r.last_rank !== r.rank ? ` <span class="${r.last_rank > r.rank ? 'up' : 'down'}" style="font-size:11px">${r.last_rank > r.rank ? '▲' : '▼'}</span>` : ''}</td><td><b>${esc(r.entry_name)}</b><br><small class="mut">${esc(r.player_name)}</small></td><td class="n">${r.matches_won}</td><td class="n">${r.matches_drawn}</td><td class="n">${r.matches_lost}</td><td class="n">${fmt(r.points_for)}</td><td class="n"><b>${r.total}</b></td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="seg" id="h2hseg" style="margin-bottom:10px">${Array.from({ length: G.lastGW }, (_, i) => i + 1).map((g) => `<button class="${g === gw ? 'on' : ''}" onclick="h2hGo(${g})">${g}</button>`).join('')}</div>
+       ${!M ? `<div class="card aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>` : M.err ? `<div class="card mut">${esc(M.err)}</div>` : `${myM ? `<div class="mut" style="font-size:12px;margin:0 2px 6px">${tt('مباراتك', 'Your match')}</div>${matchCard(myM)}` : ''}<div class="mut" style="font-size:12px;margin:12px 2px 6px">${tt('كل مباريات الجولة', 'All matches')}</div><div class="stack">${(M.results || []).filter((m) => m !== myM).map(matchCard).join('') || `<p class="mut">${t('noData')}</p>`}</div>`}
+       ${gw === G.cur && M && !M.err ? `<button class="btn btn-g btn-b" style="margin-top:10px" onclick="h2hLiveCalc()">${I('i-live', 'i', 'width:16px;height:16px')}${tt('احسب النقاط المباشرة', 'Compute live scores')}</button>` : ''}`}`;
+}
+async function loadH2HMatches(g) {
+  if (h2hMatches[g]) return;
+  try { h2hMatches[g] = await FPL.loadH2HMatches(h2hOpen, g); } catch (e) { h2hMatches[g] = { err: e.message }; }
+  if (ST.view === 'leagues' && h2hOpen) window.render();
+}
+Object.assign(window, {
+  openH2H: async (id) => {
+    h2hOpen = id; h2hData = null; h2hMatches = {}; h2hLive = {}; h2hTab = 'table'; h2hGW = ST.G.cur || 1;
+    if (!id) return window.render();
+    const meta = (ST.E.entry.leagues?.h2h || []).find((l) => l.id === id) || {};
+    window.render(); window.scrollTo(0, 0);
+    try { h2hData = await FPL.loadH2H(id); } catch (e) { h2hData = { err: e.message, name: meta.name }; }
+    if (ST.view === 'leagues') window.render();
+  },
+  h2hTabSet: (x) => { h2hTab = x; window.render(); if (x === 'm') { loadH2HMatches(h2hGW); setTimeout(() => document.querySelector('#h2hseg .on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 50); } },
+  h2hGo: (g) => { h2hGW = g; window.render(); loadH2HMatches(g); },
+  h2hLiveCalc: async () => {
+    const gw = ST.G.cur, M = h2hMatches[gw]; if (!M?.results) return;
+    const ev = ST.G.events.find((e) => e.id === gw); if (!ev || new Date(ev.deadline) > new Date()) return toast(tt('النقاط المباشرة تشتغل بعد إغلاق الجولة', 'Live scores work after the deadline'));
+    toast(tt('يحسب النقاط المباشرة…', 'Computing live scores…'));
+    try {
+      if (!ST.live || ST.liveRawGW !== gw) { const l = await FPL.loadLive(gw); ST.live = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); ST.liveRaw = l.elements; ST.liveRawGW = gw; }
+      const pts = {}; const ids = [...new Set(M.results.flatMap((m) => [m.entry_1_entry, m.entry_2_entry]).filter(Boolean))];
+      for (let i = 0; i < ids.length; i += 6) await Promise.all(ids.slice(i, i + 6).map(async (id) => { try { pts[id] = liveCalc(await FPL.fetchPicks(id, gw), gw).total; } catch {} }));
+      h2hLive[gw] = Object.fromEntries(M.results.map((m) => [m.id, [pts[m.entry_1_entry] ?? m.entry_1_points, pts[m.entry_2_entry] ?? m.entry_2_points]]));
+      window.render();
+    } catch (e) { toast(e.message); }
+  },
+});

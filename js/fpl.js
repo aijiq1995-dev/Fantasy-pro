@@ -74,6 +74,8 @@ export async function loadEntry(id, fresh = false) {
 export const fetchEntry = (id) => get(`entry/${id}/`, {}, { ttl: 120 });
 export const fetchHistory = (id) => get(`entry/${id}/history/`, {}, { ttl: 300 });
 export const fetchPicks = (id, gw) => get(`entry/${id}/event/${gw}/picks/`, {}, { ttl: 3600 });
+export const loadH2H = (id, page = 1) => get(`leagues-h2h/${id}/standings/`, { page }, { ttl: 120 });
+export const loadH2HMatches = (id, event, page = 1, fresh = false) => get(`leagues-h2h-matches/league/${id}/`, { ...(event ? { event } : {}), page }, { ttl: 60, fresh });
 export const loadLeague = (id, page = 1) => get(`leagues-classic/${id}/standings/`, { page }, { ttl: 180 });
 export const loadLive = (gw, fresh = false) => get(`event/${gw}/live/`, {}, { ttl: 30, fresh });
 export const loadFixturesGW = (gw, fresh = false) => get('fixtures/', { event: gw }, { ttl: 30, fresh });

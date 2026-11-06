@@ -16,6 +16,8 @@ const ROUTES = [
   { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, ttl: 30 },
   { re: /^entry\/\d{1,10}\/cup\/$/, ttl: 600 },
   { re: /^leagues-classic\/\d{1,10}\/standings\/$/, ttl: 180 },
+  { re: /^leagues-h2h\/\d{1,10}\/standings\/$/, ttl: 120 },
+  { re: /^leagues-h2h-matches\/league\/\d{1,10}\/$/, ttl: 60 },
   { re: /^event\/\d{1,2}\/live\/$/, ttl: 30 },
   { re: /^element-summary\/\d{1,5}\/$/, ttl: 900 },
 ];
@@ -53,8 +55,9 @@ export default async function handler(req, res) {
 
   let qs = '';
   const page = parseInt(url.searchParams.get('page') || '1', 10);
-  if (path.startsWith('leagues-classic') && page > 1) qs = `?page_standings=${Math.min(page, 1000)}`;
+  if ((path.startsWith('leagues-classic') || path.startsWith('leagues-h2h/')) && page > 1) qs = `?page_standings=${Math.min(page, 1000)}`;
   const ev = parseInt(url.searchParams.get('event') || '0', 10);
+  if (path.startsWith('leagues-h2h-matches')) qs = `?page=${Math.min(page, 100)}${ev >= 1 && ev <= 38 ? `&event=${ev}` : ''}`;
   let ttl = route.ttl;
   if (path === 'fixtures/' && ev >= 1 && ev <= 38) { qs = `?event=${ev}`; ttl = 30; }
   const key = path + qs;

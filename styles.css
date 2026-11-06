@@ -479,3 +479,17 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .mk-mid{display:flex;flex-direction:column;align-items:center;gap:2px}
 .mk-badge{font-family:var(--num);font-weight:700;font-size:15px;color:var(--on-acc);background:var(--acc);padding:2px 10px;border-radius:99px;box-shadow:0 0 18px rgba(52,211,153,.35)}
 .mk-acts{grid-column:1/-1;display:flex;gap:8px}.mk-acts .btn{flex:1}
+
+/* ---------- دوريات المواجهات ---------- */
+.h2h-me{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border-radius:14px;overflow:hidden;border:1px solid rgba(167,139,250,.25)}
+.h2h-me>div{background:linear-gradient(180deg,rgba(167,139,250,.08),var(--s1));padding:10px 4px;text-align:center}
+.h2h-me small{display:block;font-size:11px;color:var(--mut)}.h2h-me b{font-family:var(--num);font-size:20px;font-weight:600}
+.h2h-m{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:12px;border-radius:var(--r);background:var(--s1);border:1px solid var(--line)}
+.h2h-m.mine{border-color:rgba(52,211,153,.35);background:linear-gradient(180deg,rgba(52,211,153,.06),var(--s1))}
+.h2h-t{display:flex;flex-direction:column;align-items:flex-start;text-align:start;min-width:0;padding:4px 6px;border-radius:10px}
+.h2h-t.end{align-items:flex-end;text-align:end}
+.h2h-t b{font-size:13.5px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.h2h-t small{font-size:11.5px;color:var(--mut);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h2h-t.win b{color:var(--acc)}
+.h2h-s{display:flex;align-items:center;gap:6px;flex-direction:row;flex-wrap:wrap;justify-content:center;max-width:110px}
+.h2h-s .score{font-size:22px}.h2h-s i{font-style:normal;color:var(--mut)}
+.h2h-s small{flex-basis:100%;text-align:center}
