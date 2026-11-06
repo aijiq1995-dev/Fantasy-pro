@@ -144,7 +144,7 @@ export async function loadAll(fresh = false) {
     syncPush();
     scanStatic();
     const wasStale = !!document.getElementById('fresh')?.classList.contains('stale');
-    buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); if (!FPL.staleState.on) toast(wasStale ? tt('رجع موقع الفانتازي — انحدّثت البيانات ✓', 'FPL is back — data updated ✓') : tt('تم التحديث', 'Updated')); } else go(location.hash.slice(1) || 'home'); startLivePolling();
+    buildNav(); show('#app'); document.body.classList.remove('busy'); if (silent) { render(); } else go(location.hash.slice(1) || 'home'); startLivePolling();
     staleBar();
     if (FPL.staleState.on) { scheduleRetry(); staleBar(); }
   } catch (ex) {
