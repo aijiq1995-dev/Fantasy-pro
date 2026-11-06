@@ -61,7 +61,7 @@ function limited(ip) { const now = Date.now(), l = (tries.get(ip) || []).filter(
 
 export default async function handler(req, res) {
   const u = new URL(req.url, 'http://x');
-  if (u.searchParams.get('status')) return send(res, 200, { enabled });
+  if (req.method === 'GET' || u.searchParams.get('status')) return send(res, 200, { enabled });
   if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
   if (!enabled) return send(res, 503, { error: 'not_configured' });
   const host = req.headers['x-forwarded-host'] || req.headers.host || '';
