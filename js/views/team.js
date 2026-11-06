@@ -45,7 +45,7 @@ function hero(P) {
   const a = analyze(P, esc), ring = Math.round(a.overall), C = 2 * Math.PI * 26;
   return `<section class="team-hero">
     <div class="flex between" style="align-items:flex-start">
-      <div><div class="mut" style="font-size:12.5px">${t('gw')} ${G.next} · ${tt('الإغلاق', 'Deadline')} ${G.deadline && new Date(G.deadline) > new Date() ? fmtTime(G.deadline) : tt('انتهى — جارِ التحديث', 'passed — updating')}</div>
+      <div><div class="mut" style="font-size:12.5px">${t('gw')} ${G.next} · ${tt('الإغلاق', 'Deadline')} ${G.deadline && new Date(G.deadline) > new Date() ? fmtTime(G.deadline) : tt('انتهى', 'passed')}</div>
         <div class="flex" style="gap:8px;align-items:baseline"><span class="big-num count" data-v="${proj}" style="font-size:40px">${proj}</span><span class="mut" style="font-size:13px">${tt('نقطة متوقعة', 'projected pts')}</span></div>
         ${a.opt - a.cur >= 0.5 ? `<button class="hint-chip" onclick="bestLineup()">${I('i-sparkle', 'i', 'width:13px;height:13px')}${tt(`+${(a.opt - a.cur).toFixed(1)} نقطة بالتشكيلة الأفضل`, `+${(a.opt - a.cur).toFixed(1)} with best XI`)}</button>` : `<span class="hint-chip ok">${I('i-check', 'i', 'width:13px;height:13px')}${tt('تشكيلتك هي الأفضل', 'Optimal lineup')}</span>`}
       </div>

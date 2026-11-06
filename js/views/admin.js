@@ -86,7 +86,7 @@ Object.assign(window, {
   adReload: () => { D = null; window.render(); },
   adBan: (uid, ban) => askConfirm(ban ? tt('حظر هذا المستخدم؟', 'Ban this user?') : tt('رفع الحظر؟', 'Unban?'), async () => { try { await AU.adminSetUser(uid, { banned: ban }); D.users.find((u) => u.uid === uid).banned = ban; toast(tt('تم', 'Done')); window.render(); } catch (e) { toast(e.message); } }, ban),
   adDelL: (code) => askConfirm(tt('حذف الدوري نهائياً؟', 'Delete league?'), async () => { try { await AU.deleteLeague(code); D.leagues = D.leagues.filter((l) => l.code !== code); toast(tt('تم الحذف', 'Deleted')); window.render(); } catch (e) { toast(e.message); } }),
-  adRefresh: async () => { toast(tt('جارِ التحديث…', 'Refreshing…')); D = null; await window.loadAll(true); },
+  adRefresh: async () => { D = null; await window.loadAll(true); },
   adMaint: () => { D.season.maintenance = !D.season.maintenance; window.render(); },
   adSaveSeason: async () => { D.season.name = document.getElementById('sName').value.trim(); try { await AU.setConfig('season', D.season); ST.season = D.season; toast(tt('تم الحفظ', 'Saved')); } catch (e) { toast(e.message); } },
   adSaveSc: async () => { const o = {}; document.querySelectorAll('.sc-in').forEach((i) => (o[i.dataset.k] = +i.value)); try { await AU.setConfig('scoring', o); ST.scoring = o; toast(tt('تم الحفظ', 'Saved')); } catch (e) { toast(e.message); } },

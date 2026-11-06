@@ -131,7 +131,7 @@ function staleBar() {
 }
 export async function loadAll(fresh = false) {
   FPL.clearStale(); clearTimeout(staleT); clearTimeout(autoRetryT);
-  const silent = !!ST.G; if (silent) { toast(tt('جارِ التحديث…', 'Refreshing…')); document.body.classList.add('busy'); } else splash(tt('جارِ جلب بيانات فريقك من الفانتازي…', 'Fetching your FPL data…'));
+  const silent = !!ST.G; if (silent) { document.body.classList.add('busy'); } else splash(tt('جارِ جلب بيانات فريقك من الفانتازي…', 'Fetching your FPL data…'));
   try {
     const [G, E] = await Promise.all([FPL.loadGame(fresh), FPL.loadEntry(ST.profile.teamId, fresh)]);
     if (!G.next) G.next = G.cur || 1;
