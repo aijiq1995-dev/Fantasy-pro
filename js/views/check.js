@@ -8,6 +8,7 @@ import { tt, t } from '../i18n.js';
 import { esc, I, toast } from '../ui.js';
 import { xp, fixturesFor, validXI, bestXI, projected } from '../engine.js';
 import { pricePredict } from '../predict.js';
+import { upcoming } from '../fpl.js';
 import { pShirt, playerSummary } from './common.js';
 
 /* ---------- ضمان المشاركة من آخر 5 مباريات ---------- */
@@ -88,7 +89,7 @@ export function vCheck() {
   const G = ST.G, P = ST.plan; if (!P || !G.next) return `<div class="empty">${t('noData')}</div>`;
   if (!ST.plan.squad.every((id) => mins[id])) loadMins();
   const C = runChecks(), bad = C.filter((c) => c.lvl === 'bad').length, warn = C.filter((c) => c.lvl === 'warn').length;
-  const h = G.deadline ? (new Date(G.deadline) - Date.now()) / 36e5 : null;
+  const UP = upcoming(G), h = UP.deadline ? (new Date(UP.deadline) - Date.now()) / 36e5 : null;
   const dl = h != null && h > 0 ? (h < 48 ? tt(`باقي ${Math.floor(h)} ساعة و ${Math.round((h % 1) * 60)} دقيقة`, `${Math.floor(h)}h ${Math.round((h % 1) * 60)}m left`) : tt(`باقي ${Math.round(h / 24)} أيام`, `${Math.round(h / 24)} days left`)) : '';
   const st = bad ? ['bad', tt('لازم تصلح هالأشياء قبل الإغلاق', 'Fix these before the deadline'), 'var(--bad)'] : warn ? ['warn', tt('أكو أشياء تحتاج انتباهك', 'Some things need attention'), 'var(--gold)'] : ['ok', tt('فريقك جاهز ✓', 'Your team is ready ✓'), 'var(--acc)'];
   const card = (c, i) => `<div class="ck-item ${c.lvl}" style="--d:${i * 50}ms"><div class="ck-ic">${I(c.icon, 'i', 'width:18px;height:18px')}</div><div style="flex:1;min-width:0"><b>${esc(c.title)}</b>${c.body ? `<div class="mut" style="font-size:12.5px;margin-top:2px;line-height:1.6">${esc(c.body)}</div>` : ''}${c.fix ? `<button class="btn ${c.lvl === 'bad' ? 'btn-p' : 'btn-g'} btn-sm" style="margin-top:8px" onclick="${c.fix}">${I('i-check', 'i', 'width:14px;height:14px')}${esc(c.fixLbl)}</button>` : ''}</div></div>`;

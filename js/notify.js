@@ -1,4 +1,5 @@
 /* مركز الإشعارات: يولّد التنبيهات من البيانات الحقيقية (بدون تنبيهات وهمية) */
+import { upcoming } from './fpl.js';
 import { ST, saveNotifs, PM, tName } from './store.js';
 import { tt } from './i18n.js';
 
@@ -19,10 +20,11 @@ export const unreadCount = () => ST.notifs.filter((n) => !n.read).length;
 export function scanStatic() {
   const { G, E, plan } = ST; if (!G || !E) return;
   // قرب إغلاق الجولة
-  if (G.deadline) {
-    const h = (new Date(G.deadline) - Date.now()) / 36e5;
-    if (h > 0 && h <= 24) pushNotif({ key: `dl24_${G.next}`, type: 'deadline', title: tt(`باقي أقل من 24 ساعة على إغلاق الجولة ${G.next}`, `Less than 24h to GW${G.next} deadline`), body: tt('راجع تشكيلتك والكابتن', 'Check your lineup and captain'), icon: 'i-clock' });
-    if (h > 0 && h <= 2) pushNotif({ key: `dl2_${G.next}`, type: 'deadline', title: tt(`باقي أقل من ساعتين على إغلاق الجولة ${G.next}!`, `Under 2 hours to GW${G.next} deadline!`), icon: 'i-clock' });
+  const UPD = upcoming(G);
+  if (UPD.deadline) {
+    const h = (new Date(UPD.deadline) - Date.now()) / 36e5;
+    if (h > 0 && h <= 24) pushNotif({ key: `dl24_${UPD.gw}`, type: 'deadline', title: tt(`باقي أقل من 24 ساعة على إغلاق الجولة ${UPD.gw}`, `Less than 24h to GW${UPD.gw} deadline`), body: tt('راجع تشكيلتك والكابتن', 'Check your lineup and captain'), icon: 'i-clock' });
+    if (h > 0 && h <= 2) pushNotif({ key: `dl2_${UPD.gw}`, type: 'deadline', title: tt(`باقي أقل من ساعتين على إغلاق الجولة ${UPD.gw}!`, `Under 2 hours to GW${UPD.gw} deadline!`), icon: 'i-clock' });
   }
   const squad = plan ? [...plan.xi, ...plan.bench] : [];
   squad.forEach((id) => {

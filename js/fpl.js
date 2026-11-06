@@ -115,3 +115,10 @@ export function chipStatus(G, hist) {
     return { ...r, used: u, left: Math.max(0, r.number - u.length), open, expired: ref > r.stop };
   });
 }
+
+/** الجولة الجاية حسب الوقت الحقيقي: أول جولة موعد إغلاقها بعد هسة (حتى لو بيانات الفانتازي بعدها ما تحدّثت) */
+export function upcoming(G) {
+  if (!G?.events) return { gw: G?.next, deadline: G?.deadline };
+  const now = Date.now(), e = G.events.find((x) => x.deadline && new Date(x.deadline).getTime() > now);
+  return e ? { gw: e.id, deadline: e.deadline } : { gw: null, deadline: null };
+}

@@ -5,6 +5,7 @@ import { t, tt } from '../i18n.js';
 import { esc, I, fmt, fmtTime } from '../ui.js';
 import { projected, analyze, captainRank, suggestions, xp, avail, dgwBgw, fixturesFor } from '../engine.js';
 import * as FPL from '../fpl.js';
+import { upcoming } from '../fpl.js';
 import { pShirt } from './common.js';
 import { pricePredict, liveRankEstimate } from '../predict.js';
 import { liveCalc, rankImpact } from '../live-engine.js';
@@ -12,7 +13,10 @@ import { liveCalc, rankImpact } from '../live-engine.js';
 let cdT = null;
 function tick() {
   const el = document.getElementById('cd'); if (!el) return clearInterval(cdT);
-  const d = ST.G.deadline ? new Date(ST.G.deadline) : null; if (!d) { el.innerHTML = '<div><b>—</b></div>'; return; }
+  const U = upcoming(ST.G), d = U.deadline ? new Date(U.deadline) : null; if (!d) { el.innerHTML = '<div><b>—</b></div>'; return; }
+  // الجولة اللي جان يعدّ إلها انتهى موعدها؟ ننقل العدّاد للجولة اللي بعدها ونحدّث البيانات
+  if (el.dataset.gw && +el.dataset.gw !== U.gw) { const lbl = document.getElementById('cdLbl'); if (lbl) lbl.innerHTML = `${t('deadline')} ${t('gw')} ${U.gw}<span class="mut" style="font-size:12px">${fmtTime(U.deadline)}</span>`; window.loadAll?.(true); }
+  el.dataset.gw = U.gw;
   let ms = Math.max(0, d - new Date()); const D = Math.floor(ms / 864e5); ms %= 864e5; const H = Math.floor(ms / 36e5); ms %= 36e5; const M = Math.floor(ms / 6e4), S = Math.floor((ms % 6e4) / 1e3);
   const vals = [D, H, M, S].map((x) => String(x).padStart(2, '0'));
   if (el.children.length !== 4) el.innerHTML = [t('days'), t('hours'), t('mins'), t('secs')].map((l) => `<div><b></b><span>${l}</span></div>`).join('');
@@ -48,14 +52,14 @@ export function vHome() {
   const news = plan ? plan.squad.map(PM).filter((p) => p.news) : [];
   const A = actions(), recent = hist.slice(-10), mx = Math.max(1, ...recent.map((h) => Math.max(h.points, G.events.find((e) => e.id === h.event)?.avg || 0)));
   let ckBanner = '';
-  try { const C = runChecks(), bad = C.filter((c) => c.lvl === 'bad').length, warn = C.filter((c) => c.lvl === 'warn').length, hrs = G.deadline ? (new Date(G.deadline) - Date.now()) / 36e5 : 99;
+  try { const C = runChecks(), bad = C.filter((c) => c.lvl === 'bad').length, warn = C.filter((c) => c.lvl === 'warn').length, hrs = upcoming(G).deadline ? (new Date(upcoming(G).deadline) - Date.now()) / 36e5 : 99;
     if (bad || warn || hrs < 48) ckBanner = `<button class="ck-banner ${bad ? 'bad' : warn ? 'warn' : 'ok'}" onclick="go('check')">${I(bad || warn ? 'i-alert' : 'i-check', 'i', 'width:18px;height:18px')}<span><b>${bad ? tt(`${bad} مشاكل بفريقك قبل الإغلاق`, `${bad} issues before deadline`) : warn ? tt(`${warn} تنبيهات تحتاج انتباهك`, `${warn} warnings`) : tt('فريقك جاهز للجولة', 'Team ready')}</b><small>${tt('فحص قبل الإغلاق', 'Deadline check')}${hrs > 0 && hrs < 48 ? ' · ' + tt(`باقي ${Math.floor(hrs)} ساعة`, `${Math.floor(hrs)}h left`) : ''}</small></span>${I('i-chev', 'chev')}</button>`; } catch {}
   return ckBanner + `<section class="hero">
     <div class="flex between"><div style="min-width:0"><div class="mut" style="font-size:13px">${t('gw')} ${G.cur} ${livePts != null ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}</div><div class="big-num" style="font-size:44px;line-height:1.1"><span class="count" data-v="${gwPts ?? ''}">${gwPts ?? '—'}</span><span class="mut" style="font-size:14px;font-weight:500"> ${tt('نقطة', 'pts')}</span></div>${diff != null ? `<div class="${diff >= 0 ? 'up' : 'down'}" style="font-size:13px">${diff >= 0 ? '+' : ''}${diff} ${tt('عن المعدل', 'vs average')} (${ev.avg})</div>` : ''}</div>
     <div class="flex" style="gap:6px"><button class="icon-btn" onclick="openShareCard(${G.cur})" aria-label="share" title="${tt('شارك جولتك', 'Share your GW')}">${I('i-send')}</button><button class="btn btn-g btn-sm" onclick="seasonGo(${G.cur})">${tt('تفاصيل', 'Details')}${I('i-chev', 'chev')}</button></div></div>
     <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div>${(() => { const lr = livePts != null ? liveRankEstimate(livePts, rankImpact(liveCalc(E.picks, G.cur)).safety) : null; return lr ? `<div><small>${tt('الترتيب المباشر (تقدير)', 'Live rank (est.)')}</small><b style="font-size:18px">${fmt(lr.rank)}</b><em class="${lr.move >= 0 ? 'up' : 'down'}"> ${lr.move >= 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em></div>` : `<div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div>`; })()}<div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
    </section>
-   <div class="card tap" style="margin-top:10px;padding:12px 14px" onclick="go('team')"><div class="flex between"><span class="flex" style="font-size:13.5px">${I('i-clock', 'i', 'width:17px;height:17px;color:var(--acc)')}${t('deadline')} ${t('gw')} ${G.next}<span class="mut" style="font-size:12px">${fmtTime(G.deadline)}</span></span></div><div class="cd" id="cd" style="margin-top:8px"></div></div>
+   <div class="card tap" style="margin-top:10px;padding:12px 14px" onclick="go('team')"><div class="flex between"><span class="flex" style="font-size:13.5px">${I('i-clock', 'i', 'width:17px;height:17px;color:var(--acc)')}<span class="flex" id="cdLbl" style="gap:6px">${t('deadline')} ${t('gw')} ${upcoming(G).gw ?? '—'}<span class="mut" style="font-size:12px">${fmtTime(upcoming(G).deadline)}</span></span></span></div><div class="cd" id="cd" style="margin-top:8px"></div></div>
 
    <div class="sec"><h2>${I('i-target')}${tt('خطوتك الجاية', 'Your next moves')}</h2></div>
    <div class="list">${A.map((x) => `<div class="row"><div class="pbig" style="background:color-mix(in srgb, ${x.col} 14%, transparent);color:${x.col}">${I(x.ok ? 'i-check' : x.ic, 'i', 'width:19px;height:19px')}</div><div class="info"><b>${x.h}</b><span style="white-space:normal">${x.d}</span></div>${x.b ? `<button class="btn btn-g btn-sm" onclick="${x.b[1]}">${x.b[0]}</button>` : ''}</div>`).join('')}</div>
