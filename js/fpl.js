@@ -60,10 +60,10 @@ export async function loadGame(fresh = false) {
 
 export async function loadEntry(id, fresh = false) {
   const [entry, hist, transfers] = await Promise.all([
-    get(`entry/${id}/`, {}, { ttl: 120, fresh }), get(`entry/${id}/history/`, {}, { ttl: 300, fresh }), get(`entry/${id}/transfers/`, {}, { ttl: 300, fresh }).catch(() => []),
+    get(`entry/${id}/`, {}, { ttl: 20, fresh }), get(`entry/${id}/history/`, {}, { ttl: 60, fresh }), get(`entry/${id}/transfers/`, {}, { ttl: 15, fresh }).catch(() => []),
   ]);
   const gw = entry.current_event || null;
-  const picks = gw ? await get(`entry/${id}/event/${gw}/picks/`, {}, { ttl: 300, fresh }).catch(() => null) : null;
+  const picks = gw ? await get(`entry/${id}/event/${gw}/picks/`, {}, { ttl: 30, fresh }).catch(() => null) : null;
   // بعد الفري هيت الفريق يرجع لتشكيلة الجولة اللي قبلها
   let basePicks = picks, fhRevert = false;
   if (picks?.active_chip === 'freehit' && gw > 1) { const prev = await get(`entry/${id}/event/${gw - 1}/picks/`, {}, { ttl: 3600, fresh }).catch(() => null); if (prev) { basePicks = prev; fhRevert = true; } }

@@ -10,10 +10,10 @@ const UA = 'Mozilla/5.0 (compatible; FantasyPro/2.0)';
 const ROUTES = [
   { re: /^bootstrap-static\/$/, ttl: 300 },
   { re: /^fixtures\/$/, ttl: 600 },
-  { re: /^entry\/\d{1,10}\/$/, ttl: 120 },
-  { re: /^entry\/\d{1,10}\/history\/$/, ttl: 300 },
-  { re: /^entry\/\d{1,10}\/transfers\/$/, ttl: 300 },
-  { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, ttl: 300 },
+  { re: /^entry\/\d{1,10}\/$/, ttl: 20 },
+  { re: /^entry\/\d{1,10}\/history\/$/, ttl: 60 },
+  { re: /^entry\/\d{1,10}\/transfers\/$/, ttl: 15 },
+  { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, ttl: 30 },
   { re: /^entry\/\d{1,10}\/cup\/$/, ttl: 600 },
   { re: /^leagues-classic\/\d{1,10}\/standings\/$/, ttl: 180 },
   { re: /^event\/\d{1,2}\/live\/$/, ttl: 30 },
@@ -26,7 +26,7 @@ const lastFresh = new Map();
 function send(res, code, data, ttl = 0) {
   res.statusCode = code;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', ttl ? `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 10}` : 'no-store');
+  res.setHeader('Cache-Control', ttl ? `public, s-maxage=${ttl}, stale-while-revalidate=${Math.min(ttl, 60)}` : 'no-store');
   res.end(JSON.stringify(data));
 }
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]));
