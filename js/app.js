@@ -8,6 +8,7 @@ import { setGame } from './engine.js';
 import { SPRITE } from './sprite.js';
 import { t, tt, setLang, applyDir, lang } from './i18n.js';
 import { $, $$, esc, I, toast, openSheet, closeSheet, LS, fmt } from './ui.js';
+import { countAll } from './motion.js';
 import { ST, loadLocal, planKey } from './store.js';
 import { scanStatic, unreadCount } from './notify.js';
 import { VIEWS, AFTER, startLivePolling } from './views/index.js';
@@ -181,11 +182,8 @@ window.addEventListener('popstate', () => {
 });
 window.goBack = goBack;
 let lastCount = '';
-function countUp() {
-  if (lastCount === ST.view || matchMedia('(prefers-reduced-motion: reduce)').matches) { lastCount = ST.view; return; } lastCount = ST.view;
-  document.querySelectorAll('#view .count[data-v]').forEach((el) => { const v = +el.dataset.v, dec = String(el.dataset.v).includes('.') ? 1 : 0, t0 = performance.now(); if (!isFinite(v)) return;
-    const step = (now) => { const k = Math.min(1, (now - t0) / 650), e = 1 - Math.pow(1 - k, 3); el.textContent = (v * e).toFixed(dec); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
-}
+function countUp() { const first = lastCount !== ST.view; lastCount = ST.view; countAll(document.getElementById('view'), first); }
+window.__canPull = () => ['home', 'team', 'live', 'season', 'leagues', 'prices'].includes(ST.view);
 export function render() {
   if (!ST.G) return;
   $$('.nb').forEach((b) => b.classList.toggle('on', b.dataset.v === ST.view));

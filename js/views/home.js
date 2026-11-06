@@ -13,7 +13,9 @@ function tick() {
   const el = document.getElementById('cd'); if (!el) return clearInterval(cdT);
   const d = ST.G.deadline ? new Date(ST.G.deadline) : null; if (!d) { el.innerHTML = '<div><b>—</b></div>'; return; }
   let ms = Math.max(0, d - new Date()); const D = Math.floor(ms / 864e5); ms %= 864e5; const H = Math.floor(ms / 36e5); ms %= 36e5; const M = Math.floor(ms / 6e4), S = Math.floor((ms % 6e4) / 1e3);
-  el.innerHTML = [[D, t('days')], [H, t('hours')], [M, t('mins')], [S, t('secs')]].map((x) => `<div><b>${String(x[0]).padStart(2, '0')}</b><span>${x[1]}</span></div>`).join('');
+  const vals = [D, H, M, S].map((x) => String(x).padStart(2, '0'));
+  if (el.children.length !== 4) el.innerHTML = [t('days'), t('hours'), t('mins'), t('secs')].map((l) => `<div><b></b><span>${l}</span></div>`).join('');
+  [...el.querySelectorAll('b')].forEach((b, i) => { if (b.textContent !== vals[i]) { b.textContent = vals[i]; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick'); } });
 }
 export function liveTeamPoints() {
   const { E, live } = ST; if (!live || !E.picks || E.gw !== ST.G.cur) return null;
