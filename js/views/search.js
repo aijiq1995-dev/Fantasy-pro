@@ -57,7 +57,7 @@ async function run(q, follow = false) {
   if (!q || A.busy) return; addRecent(q);
   if (!follow) chat = [];
   A = { q, text: '', busy: true, err: '', tools: [], src: '' }; ctrl = new AbortController(); window.render();
-  const TN = { find_players: tt('بحث اللاعبين', 'players'), player_detail: tt('تفاصيل لاعب', 'player'), my_team: tt('فريقك', 'your team'), my_season: tt('موسمك', 'season'), gameweek: tt('جولة', 'gameweek'), fixture_run: tt('المباريات', 'fixtures'), simulate_transfer: tt('محاكاة انتقال', 'transfer sim'), league_standings: tt('الدوري', 'league'), chips_and_calendar: tt('الأوراق', 'chips') };
+  const TN = { find_players: tt('بحث اللاعبين', 'players'), player_detail: tt('تفاصيل لاعب', 'player'), my_team: tt('فريقك', 'your team'), my_season: tt('موسمك', 'season'), gameweek: tt('جولة', 'gameweek'), fixture_run: tt('المباريات', 'fixtures'), simulate_transfer: tt('محاكاة انتقال', 'transfer sim'), league_standings: tt('الدوري', 'league'), chips_and_calendar: tt('الأوراق', 'chips'), price_predictions: tt('توقع الأسعار', 'prices'), live_rank: tt('الترتيب المباشر', 'live rank') };
   try {
     const r = await askAI(q, { signal: ctrl.signal, history: chat, onTool: (n) => { if (!A.tools.includes(TN[n] || n)) { A.tools.push(TN[n] || n); if (ST.view === 'search') window.render(); } }, onText: (txt) => { A.text = txt; const b = document.getElementById('ansTxt'); if (b) b.innerHTML = md(txt); } });
     A.text = r.text || A.text; A.src = 'ai'; chat.push({ role: 'user', content: q }, { role: 'assistant', content: A.text });

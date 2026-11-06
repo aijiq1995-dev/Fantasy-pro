@@ -130,7 +130,7 @@ function loadPlan() { const s = LS.get(planKey()); return s && s.squad?.length =
 /* ---------- التنقل ---------- */
 const NAV = [
   ['g_main', [['home', 'i-home'], ['team', 'i-pitch'], ['season', 'i-season'], ['live', 'i-live'], ['search', 'i-sparkle']]],
-  ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['lab', 'i-lab'], ['compare', 'i-compare']]],
+  ['g_players', [['players', 'i-users'], ['market', 'i-swap'], ['prices', 'i-coin'], ['lab', 'i-lab'], ['compare', 'i-compare']]],
   ['g_comp', [['leagues', 'i-trophy'], ['chips', 'i-bolt'], ['stats', 'i-history'], ['achievements', 'i-medal']]],
   ['g_more', [['notifs', 'i-bell'], ['settings', 'i-settings']]],
 ];

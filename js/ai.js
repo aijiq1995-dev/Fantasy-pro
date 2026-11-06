@@ -6,6 +6,7 @@ import { ST, PM, tShort, tName } from './store.js';
 import { tt, lang } from './i18n.js';
 import { esc, CLUB_AR } from './ui.js';
 import * as FPL from './fpl.js';
+import { pricePredict, liveRankEstimate } from './predict.js';
 import { xp, xpN, avail, avgFdr, fixturesFor, analyze, suggestions, canBuy, projected, bestXI, formation, dgwBgw, captainRank } from './engine.js';
 
 /* ---------- تطبيع النص (عربي/إنجليزي/أحرف مركبة) ---------- */
@@ -20,7 +21,7 @@ const SORTW = [
   [['ملكيه', 'ملكية', 'owned', 'ownership'], 'own'], [['مفاجا', 'مفاجآت', 'differential', 'قليل الملكيه'], 'diff'], [['اهداف', 'هداف', 'goals'], 'gls'], [['xg', 'متوقعه اهداف'], 'xg'],
   [['صاعد', 'rising', 'شراء'], 'tin'], [['قيمه', 'value', 'نقطه لكل مليون'], 'value'], [['سهله', 'easy', 'مباريات سهله'], 'fix'],
 ];
-const VIEWW = [[['تشكيل', 'ملعب', 'فريقي', 'lineup', 'team'], 'team'], [['جوله', 'جولات', 'gameweek', 'gw', 'موسم'], 'season'], [['مباشر', 'live', 'نتائج'], 'live'], [['دوري', 'دوريات', 'ترتيب', 'league'], 'leagues'], [['ورق', 'اوراق', 'chip', 'وايلد', 'بنش', 'فري هيت', 'كابتن ثلاثي'], 'chips'], [['انتقال', 'سوق', 'transfer', 'market'], 'market'], [['مختبر', 'قرار', 'lab', 'hit', 'خصم'], 'lab'], [['تحليل', 'احصاء', 'stats', 'analytics'], 'stats'], [['مقارنه', 'compare'], 'compare'], [['اشعار', 'notif'], 'notifs'], [['اعداد', 'settings'], 'settings']];
+const VIEWW = [[['سعر', 'اسعار', 'صعود', 'نزول', 'price'], 'prices'], [['تشكيل', 'ملعب', 'فريقي', 'lineup', 'team'], 'team'], [['جوله', 'جولات', 'gameweek', 'gw', 'موسم'], 'season'], [['مباشر', 'live', 'نتائج'], 'live'], [['دوري', 'دوريات', 'ترتيب', 'league'], 'leagues'], [['ورق', 'اوراق', 'chip', 'وايلد', 'بنش', 'فري هيت', 'كابتن ثلاثي'], 'chips'], [['انتقال', 'سوق', 'transfer', 'market'], 'market'], [['مختبر', 'قرار', 'lab', 'hit', 'خصم'], 'lab'], [['تحليل', 'احصاء', 'stats', 'analytics'], 'stats'], [['مقارنه', 'compare'], 'compare'], [['اشعار', 'notif'], 'notifs'], [['اعداد', 'settings'], 'settings']];
 const has = (q, words) => words.some((w) => q.includes(norm(w)));
 
 /** يفهم البحث محلياً: لاعبين، أندية، جولات، أقسام، وفلاتر ذكية (مركز/سعر/ترتيب/نادي) */
@@ -70,6 +71,10 @@ export const TOOLS = [
     execute: async ({ name }) => { const ls = ST.E.entry.leagues?.classic || []; const l = ls.find((x) => name && norm(x.name).includes(norm(name))) || ls.find((x) => x.league_type === 'x') || ls[0]; if (!l) return { error: 'no leagues' }; try { const d = await FPL.loadLeague(l.id); return { league: l.name, my_rank: l.entry_rank, rows: d.standings.results.slice(0, 20).map((r) => ({ rank: r.rank, team: r.entry_name, manager: r.player_name, gw: r.event_total, total: r.total })) }; } catch (e) { return { league: l.name, my_rank: l.entry_rank, of: l.rank_count, error: e.message }; } } },
   { name: 'chips_and_calendar', description: 'Chips remaining per season rules and upcoming double/blank gameweeks.', inputSchema: { type: 'object', properties: {} },
     execute: () => ({ chips: FPL.chipStatus(ST.G, ST.E.hist).map((c) => ({ chip: c.name, window: `GW${c.start}-${c.stop}`, left: c.left, used: c.used.map((u) => u.event) })), doubles_blanks: dgwBgw(ST.G.next, ST.G.lastGW).map((x) => ({ gw: x.gw, doubles: x.dbl.map(tShort), blanks: x.blank.map(tShort) })) }) },
+  { name: 'price_predictions', description: 'Estimated price-change progress (-100..+100 = approx threshold) from net transfers this GW, for the user squad/watchlist or top risers/fallers. Estimates only.', inputSchema: { type: 'object', properties: { scope: { type: 'string', enum: ['mine', 'risers', 'fallers'] } } },
+    execute: ({ scope = 'mine' }) => { const mine = new Set([...(ST.plan?.squad || []), ...ST.watch]); let L = ST.G.players.filter((p) => p.st !== 'u').map((p) => ({ p, r: pricePredict(p) })); L = scope === 'mine' ? L.filter((x) => mine.has(x.p.id)) : scope === 'risers' ? L.sort((a, b) => b.r.prog - a.r.prog).slice(0, 12) : L.sort((a, b) => a.r.prog - b.r.prog).slice(0, 12); return L.map(({ p, r }) => ({ name: p.full, club: tShort(p.team), price: p.price, changed_this_gw: p.cc, net_transfers_gw: r.net, progress_pct: r.prog, state: r.state })); } },
+  { name: 'live_rank', description: 'Estimated live overall rank during an ongoing gameweek (estimate).', inputSchema: { type: 'object', properties: {} },
+    execute: async () => { const { liveTeamPoints } = await import('./views/home.js'); const lp = liveTeamPoints(); const r = liveRankEstimate(lp); return r ? { live_points: lp, estimated_rank: r.rank, previous_rank: r.from, estimated_live_average: r.avgLive } : { note: 'No live gameweek in progress or not enough data' }; } },
 ];
 
 /* ---------- مختبر القرار (يُستخدم بالواجهة والأدوات) ---------- */

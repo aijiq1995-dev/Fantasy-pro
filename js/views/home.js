@@ -5,6 +5,7 @@ import { esc, I, fmt, fmtTime } from '../ui.js';
 import { projected, analyze, captainRank, suggestions, xp, avail, dgwBgw, fixturesFor } from '../engine.js';
 import * as FPL from '../fpl.js';
 import { pShirt } from './common.js';
+import { pricePredict, liveRankEstimate } from '../predict.js';
 
 let cdT = null;
 function tick() {
@@ -29,6 +30,8 @@ function actions() {
   if (risk.length) out.push({ ic: 'i-alert', col: 'var(--warn)', h: tt(`${risk.length} لاعب أساسي غير مضمون`, `${risk.length} doubtful starters`), d: risk.map((p) => `${esc(p.name)} ${Math.round(avail(p) * 100)}%`).join(' · '), b: [tt('شوف الفريق', 'View team'), "go('team')"] });
   const s = suggestions(P, 1)[0];
   if (s) out.push({ ic: 'i-swap', col: 'var(--acc)', h: tt('أفضل انتقال متاح', 'Best transfer'), d: `${esc(s.o.name)} ← <b>${esc(s.c.name)}</b> · +${s.g} xP/3`, b: [tt('جرّبه بالمختبر', 'Test in lab'), `labPreset(${s.o.id},${s.c.id})`] });
+  const pf = P.squad.map(PM).map((p) => [p, pricePredict(p)]).filter((x) => x[1].prog <= -70).sort((a, b) => a[1].prog - b[1].prog);
+  if (pf.length) out.push({ ic: 'i-down', col: 'var(--bad)', h: tt(`${pf.length} من لاعبينك سعره ممكن ينزل`, `${pf.length} of your players may drop in price`), d: pf.slice(0, 3).map(([p, r]) => `${esc(p.name)} ${r.prog}%`).join(' · ') + tt(' (تقدير)', ' (estimate)'), b: [t('prices'), "go('prices')"] });
   const dg = dgwBgw(G.next, Math.min(G.lastGW, G.next + 3)).find((x) => x.dbl.length);
   if (dg) out.push({ ic: 'i-bolt', col: 'var(--violet)', h: tt(`جولة مزدوجة GW${dg.gw}`, `Double GW${dg.gw}`), d: dg.dbl.map(tShort).join('، ') + tt(' — وقت مناسب للأوراق', ' — chip opportunity'), b: [t('chips'), "go('chips')"] });
   return out.slice(0, 4);
@@ -44,7 +47,7 @@ export function vHome() {
   return `<section class="hero">
     <div class="flex between"><div style="min-width:0"><div class="mut" style="font-size:13px">${t('gw')} ${G.cur} ${livePts != null ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}</div><div class="big-num" style="font-size:44px;line-height:1.1">${gwPts ?? '—'}<span class="mut" style="font-size:14px;font-weight:500"> ${tt('نقطة', 'pts')}</span></div>${diff != null ? `<div class="${diff >= 0 ? 'up' : 'down'}" style="font-size:13px">${diff >= 0 ? '+' : ''}${diff} ${tt('عن المعدل', 'vs average')} (${ev.avg})</div>` : ''}</div>
     <button class="btn btn-g btn-sm" onclick="seasonGo(${G.cur})">${tt('تفاصيل', 'Details')}${I('i-chev', 'chev')}</button></div>
-    <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div><div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div><div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
+    <div class="kpis"><div><small>${t('total')}</small><b>${fmt(en.summary_overall_points)}</b></div>${(() => { const lr = liveRankEstimate(livePts); return lr ? `<div><small>${tt('الترتيب المباشر (تقدير)', 'Live rank (est.)')}</small><b style="font-size:18px">${fmt(lr.rank)}</b><em class="${lr.move >= 0 ? 'up' : 'down'}"> ${lr.move >= 0 ? '▲' : '▼'} ${fmt(Math.abs(lr.move))}</em></div>` : `<div><small>${t('overall')}</small><b style="font-size:18px">${fmt(en.summary_overall_rank)}</b>${mv ? `<em class="${mv > 0 ? 'up' : 'down'}"> ${mv > 0 ? '▲' : '▼'} ${fmt(Math.abs(mv))}</em>` : ''}</div>`; })()}<div><small>${tt('المتوقع GW', 'Proj. GW')}${G.next}</small><b>${plan ? projected(plan) : '—'}</b></div></div>
    </section>
    <div class="card tap" style="margin-top:10px;padding:12px 14px" onclick="go('team')"><div class="flex between"><span class="flex" style="font-size:13.5px">${I('i-clock', 'i', 'width:17px;height:17px;color:var(--acc)')}${t('deadline')} ${t('gw')} ${G.next}<span class="mut" style="font-size:12px">${fmtTime(G.deadline)}</span></span></div><div class="cd" id="cd" style="margin-top:8px"></div></div>
 
