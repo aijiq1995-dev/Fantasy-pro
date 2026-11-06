@@ -114,7 +114,7 @@ svg.i{width:20px;height:20px;flex-shrink:0;stroke:currentColor;fill:none;stroke-
 .hero{border-radius:var(--r-lg);padding:18px;background:linear-gradient(160deg,#14211D 0%,#111821 55%,#12161F 100%);border:1px solid rgba(52,211,153,.18);position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;inset:auto -60px -90px auto;width:260px;height:260px;border-radius:50%;background:radial-gradient(rgba(52,211,153,.14),transparent 70%)}
 .hero>*{position:relative;z-index:1}
-.cd{display:flex;gap:6px;direction:ltr}
+.cd{display:flex;gap:6px}
 .cd div{flex:1;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:6px 2px;text-align:center}
 .cd b{display:block;font-size:20px;font-weight:600;line-height:1.2}.cd span{font-size:11px;color:var(--mut)}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border-radius:14px;overflow:hidden;margin-top:14px}
