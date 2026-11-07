@@ -16,7 +16,7 @@ async function refreshLive(force = false) {
   try {
     const [l, fx] = await Promise.all([FPL.loadLive(g, force), FPL.loadFixturesGW(g, force)]);
     const next = Object.fromEntries(l.elements.map((x) => [x.id, x.stats]));
-    const fxNorm = fx.map((x) => ({ id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: x.finished || x.finished_provisional, started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] }));
+    const fxNorm = fx.map((x) => ({ id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: !!(x.finished || (x.finished_provisional && (x.minutes || 0) >= 90)), started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] }));
     scanLive(ST.live, next, ST.G.fx[g], fxNorm);
     ST.live = next; ST.liveRaw = l.elements; ST.liveRawGW = g; ST.G.fx[g] = fxNorm; lastFetch = Date.now(); freshness();
     if (Date.now() - (window.__entryAt || 0) > 110e3) { window.__entryAt = Date.now(); FPL.fetchEntry(ST.profile.teamId, true).then((en) => { if (en?.id) ST.E.entry = { ...ST.E.entry, ...en }; }).catch(() => {}); }

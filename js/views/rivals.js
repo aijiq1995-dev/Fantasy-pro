@@ -23,7 +23,10 @@ const gwStarted = () => { const ev = ST.G.events.find((e) => e.id === ST.G.cur);
 /* نقاط مباشرة خاصة بالمتتبّع: تنجلب طازجة وتتحدث كل 30 ثانية وقت المباريات */
 let LV = { gw: 0, map: null, at: 0 }, lvTimer = 0, openEntry = null, openGW = null;
 const LVG = {}, XG = {}, MT = {}; let mtGW = null;
-const isLiveGW = (g) => (ST.G.fx[g] || []).some((f) => f.started && !f.fin);
+/* الجولة شغّالة؟ نعتمد على وقت انطلاق المباريات حتى لو بيانات المباريات بالجهاز قديمة */
+const isLiveGW = (g) => { const now = Date.now(); return (ST.G.fx[g] || []).some((f) => !f.fin && (f.started || (f.ko && new Date(f.ko) <= now && now - new Date(f.ko) < 4 * 3600e3))); };
+const normFx = (x) => ({ id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: !!(x.finished || (x.finished_provisional && (x.minutes || 0) >= 90)), started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] });
+async function refreshFx(gw) { try { const fx = await FPL.loadFixturesGW(gw, true); if (Array.isArray(fx) && fx.length) ST.G.fx[gw] = fx.map(normFx); } catch {} }
 async function ensureLive(gw, fresh = false) {
   if (!fresh && LV.gw === gw && LV.map && Date.now() - LV.at < 25e3) return;
   const l = await FPL.loadLive(gw, fresh); LV = { gw, map: Object.fromEntries(l.elements.map((x) => [x.id, x.stats])), at: Date.now() }; LVG[gw] = LV.map;
@@ -39,8 +42,10 @@ function startLiveTimer() {
   clearInterval(lvTimer);
   lvTimer = setInterval(async () => {
     if (ST.view !== 'rivals' || !S.members) return clearInterval(lvTimer);
-    if (document.hidden || !isLiveGW(S.gw)) return;
-    try { await ensureLive(S.gw, true); } catch { return; }
+    if (document.hidden || S.gw !== ST.G.cur || !isLiveGW(S.gw)) return;
+    try { await Promise.all([ensureLive(S.gw, true), refreshFx(S.gw)]); } catch { return; }
+    await pool(S.members.filter((m) => !m.picks), 4, async (m) => { try { m.picks = await FPL.fetchPicks(m.entry, S.gw); } catch {} });
+    if (sel?.kind === 'h') { const k = `${S.L.id}:${S.gw}`; if (MT[k]?.rows && Date.now() - (MT[k].at || 0) > 120e3) loadMT(S.L, S.gw, true); }
     S.members.forEach(recalc); Object.values(S.extra || {}).forEach(recalc);
     Object.values(XG[S.gw] || {}).forEach(recalc);
     if (openEntry && document.getElementById('rvSheet')) document.getElementById('rvSheet').innerHTML = sheetBody(openEntry, openGW);
@@ -52,7 +57,7 @@ const pool = async (arr, n, fn) => { const out = []; for (let i = 0; i < arr.len
 async function load(L) {
   busy = true; const me = ST.profile.teamId, gw = ST.G.cur; S = { L, err: '' }; window.render();
   try {
-    await ensureLive(gw, true).catch(() => {});
+    await Promise.all([ensureLive(gw, true).catch(() => {}), refreshFx(gw)]);
     let members = [], opp = null, table = null;
     if (L.kind === 'c') {
       const d = await FPL.loadLeague(L.id, 1); const res = d.standings?.results || []; table = res;
@@ -165,14 +170,14 @@ function matchesInner() {
   if (!d?.rows) { if (!d?.busy && !d?.err) loadMT(L, g); return d?.err ? `<div class="mut" style="text-align:center;padding:14px;font-size:12.5px">${tt('تعذّر جلب المباريات', 'Could not load matches')}</div>` : `<div class="aiload" style="padding:14px"><i></i><i></i><i></i></div>`; }
   const ev = ST.G.events.find((e) => e.id === g), live = isLiveGW(g), fin = !!ev?.fin, startedG = ev && new Date(ev.deadline) < new Date();
   const meE = ST.profile.teamId;
-  const pts = (e, raw) => { if (g === S.gw && live) { const m = S.members?.find((x) => x.entry === e); if (m?.calc) return m.calc.total; } return raw ?? 0; };
+  const pts = (e, raw) => { if (g === S.gw && live) { const m = S.members?.find((x) => x.entry === e); if (m?.calc && liveMap(g)) return m.calc.total; } return raw ?? 0; };
   if (!d.rows.length) return `<div class="mut" style="text-align:center;padding:14px;font-size:12.5px">${tt('ماكو مباريات بهاي الجولة', 'No matches this GW')}</div>`;
   const nameBtn = (e, nm, mg, side) => e ? `<button class="mt-t ${side}" onclick="rvOpenGW(${e},${g})"${!startedG ? ' disabled' : ''}><b>${esc(nm)}</b><small>${esc(mg || '')}</small></button>` : `<div class="mt-t ${side} bye"><b>${tt('راحة', 'BYE')}</b></div>`;
   const rows = d.rows.map((r) => {
     const a = r.entry_1_entry, b = r.entry_2_entry, mine = a === meE || b === meE;
     const pa = pts(a, r.entry_1_points), pb = pts(b, r.entry_2_points);
     const w = startedG && (fin || live || pa || pb) ? (pa > pb ? 1 : pb > pa ? 2 : 0) : -1;
-    const mid = !startedG ? `<div class="mt-sc pend">${tt('لم تبدأ', 'TBD')}</div>` : `<div class="mt-sc${live ? ' live' : ''}"><span class="${w === 1 ? 'w' : ''}">${pa}</span><i>-</i><span class="${w === 2 ? 'w' : ''}">${pb}</span></div>`;
+    const mid = !startedG ? `<div class="mt-sc pend">${tt('لم تبدأ', 'TBD')}</div>` : `<div class="mt-sc${live ? ' live' : ''}"><span class="${w === 1 ? 'w' : ''}" dir="ltr">${pa}</span><i>-</i><span class="${w === 2 ? 'w' : ''}" dir="ltr">${pb}</span></div>`;
     return `<div class="mt-row${mine ? ' me' : ''}${w === 1 ? ' w1' : w === 2 ? ' w2' : ''}">${nameBtn(a, r.entry_1_name, r.entry_1_player_name, 'r')}${mid}${nameBtn(b, r.entry_2_name, r.entry_2_player_name, 'l')}</div>`;
   }).join('');
   const note = live ? `<div class="mt-note">${I('i-live', 'i', 'width:12px;height:12px')} ${tt('نقاط مباشرة — تتحدّث تلقائياً', 'Live points')}</div>` : !startedG ? `<div class="mt-note">${tt('القرعة فقط — التشكيلات تنكشف بعد الديدلاين', 'Pairings only')}</div>` : '';
