@@ -1,7 +1,7 @@
 /* مركز المباريات والنقاط المباشرة */
 import { ST, PM, tName, tShort, officialRank } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML } from '../ui.js';
+import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML, KITS } from '../ui.js';
 import * as FPL from '../fpl.js';
 import { scanLive } from '../notify.js';
 import { pShirt } from './common.js';
@@ -112,24 +112,69 @@ window.openWhatIf = () => {
    <p class="mut" style="font-size:11.5px;margin-top:8px">${tt('تقديري: محسوب من الملكية الفعلية التقديرية وتوزيع النقاط.', 'Estimate based on estimated EO.')}</p>`);
 };
 window.wiSet = (id) => { wiP = id; window.openWhatIf(); };
-/** المساهمات الدفاعية بالمباراة: اللي وصلوا الحد (+2) واللي قربوا */
-function dcRows(f) {
-  const s = f.stats.find((x) => x.identifier === 'defensive_contribution'); if (!s) return '';
-  const T = (id) => ({ DEF: 10, MID: 12, FWD: 12 })[PM(id)?.pos] || 99;
-  const side = (arr) => { const got = arr.filter((x) => x.value >= T(x.element)).sort((a, b) => b.value - a.value), near = arr.filter((x) => x.value < T(x.element) && x.value >= T(x.element) - 2).sort((a, b) => b.value - a.value);
-    return got.map((x) => `<div class="dc-evt ok"><span class="n">${esc(PM(x.element)?.name || '#' + x.element)}</span><b dir="ltr">${x.value}</b><em>+2</em></div>`).join('') + near.map((x) => `<div class="dc-evt"><span class="n">${esc(PM(x.element)?.name || '#' + x.element)}</span><b dir="ltr">${x.value}/${T(x.element)}</b></div>`).join(''); };
-  const h = side(s.h), a = side(s.a); if (!h && !a) return `<div class="evt"><span style="flex:1"></span><b class="mut" style="font-size:12px">${tt('مساهمات دفاعية', 'DefCon')}</b><span style="flex:1;text-align:end" class="mut">—</span></div>`;
-  return `<div class="evt dc-wrap"><span style="flex:1;text-align:start">${h || '<span class="mut">—</span>'}</span><b class="mut" style="font-size:12px;text-align:center">${I('i-shield', 'i', 'width:13px;height:13px;vertical-align:-2px')}<br>${tt('مساهمات دفاعية', 'DefCon')}</b><span style="flex:1;text-align:end" class="dc-a">${a || '<span class="mut">—</span>'}</span></div>
-   <p class="mut" style="font-size:11px;margin:6px 0 0;line-height:1.6">${tt('المدافع يحتاج 10 والوسط والمهاجم 12 حتى ياخذ <b class="up">+2</b>. الباهت = قريب من الحد.', 'DEF needs 10, MID/FWD 12 for +2. Faded = close.')}</p>`;
+/* =========================================================
+   صفحة المباراة — تصميم احترافي:
+   لوحة النتيجة بألوان الفريقين · أحداث المباراة لكل فريق بأيقونات
+   · البونص ونقاط BPS · المساهمات الدفاعية · ترتيب نقاط الفانتازي بالمباراة · لاعبينك
+========================================================= */
+const mcLive = {};
+const DCT = (id) => ({ DEF: 10, MID: 12, FWD: 12 })[PM(id)?.pos] || 99;
+const nmOf = (id) => esc(PM(id)?.name || '#' + id);
+function mcBody(f, ev) {
+  const st = (k) => f.stats.find((x) => x.identifier === k) || { h: [], a: [] };
+  const KH = KITS[tShort(f.h)]?.b || '#334155', KA = KITS[tShort(f.a)]?.b || '#334155';
+  const L = mcLive[ev], live = f.started && !f.fin;
+  const status = !f.started ? `<span class="mc-ko">${f.ko ? new Date(f.ko).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'VS'}</span>` : live ? `<span class="mc-live"><i></i>${f.min || 0}′</span>` : `<span class="mc-ft">${tt('انتهت', 'Full time')}</span>`;
+  const board = `<div class="mc-board" style="--kh:${KH};--ka:${KA}">
+    <div class="mc-team">${crest(tShort(f.h), 58)}<b>${tName(f.h)}</b>${f.hd ? `<span class="rate f${f.hd}">${tt('صعوبة', 'FDR')} ${f.hd}</span>` : ''}</div>
+    <div class="mc-mid">${f.started ? scoreHTML(f.hs, f.as, 'mc-score') : ''}${status}</div>
+    <div class="mc-team">${crest(tShort(f.a), 58)}<b>${tName(f.a)}</b>${f.ad ? `<span class="rate f${f.ad}">${tt('صعوبة', 'FDR')} ${f.ad}</span>` : ''}</div></div>`;
+  if (!f.started) return board + `<div class="mc-empty">${I('i-clock', 'i', 'width:28px;height:28px')}<b>${tt('المباراة بعدها ما بدت', 'Not started yet')}</b><span>${fmtTime(f.ko)}</span></div>` + mineBlock(f, ev);
+  // صف حدث بعمودين
+  const evRow = (icon, label, side) => { const H = side(st, 'h'), A = side(st, 'a'); if (!H && !A) return ''; return `<div class="mc-ev"><div class="mc-side h">${H || '<span class="mc-none">—</span>'}</div><div class="mc-lbl">${icon}<span>${label}</span></div><div class="mc-side a">${A || '<span class="mc-none">—</span>'}</div></div>`; };
+  const list = (key, extra = (x) => (x.value > 1 ? `<small>×${x.value}</small>` : '')) => (S, side) => S(key)[side].map((x) => `<button class="mc-chip" onclick="closeSheet();setTimeout(()=>playerGW(${x.element},${ev}),200)">${nmOf(x.element)}${extra(x)}</button>`).join('');
+  const goalsOwn = (S, side) => { const g = list('goals_scored')(S, side), og = S('own_goals')[side === 'h' ? 'a' : 'h'].map((x) => `<span class="mc-chip og">${nmOf(x.element)}<small>${tt('عكسي', 'OG')}</small></span>`).join(''); return g + og; };
+  const cards = (S, side) => S('yellow_cards')[side].map((x) => `<span class="mc-chip"><i class="mc-card y"></i>${nmOf(x.element)}</span>`).join('') + S('red_cards')[side].map((x) => `<span class="mc-chip"><i class="mc-card r"></i>${nmOf(x.element)}</span>`).join('');
+  const pens = (S, side) => S('penalties_missed')[side].map((x) => `<span class="mc-chip">${nmOf(x.element)}<small>${tt('أضاع جزاء', 'pen miss')}</small></span>`).join('') + S('penalties_saved')[side].map((x) => `<span class="mc-chip">${nmOf(x.element)}<small>${tt('صد جزاء', 'pen save')}</small></span>`).join('');
+  const bonusSide = (S, side) => S('bonus')[side].sort((a, b) => b.value - a.value).map((x) => `<span class="mc-chip bn b${x.value}"><i>${x.value}</i>${nmOf(x.element)}</span>`).join('');
+  const dcSide = (S, side) => { const arr = S('defensive_contribution')[side]; const got = arr.filter((x) => x.value >= DCT(x.element)).sort((a, b) => b.value - a.value), near = arr.filter((x) => x.value < DCT(x.element) && x.value >= DCT(x.element) - 2).sort((a, b) => b.value - a.value);
+    return got.map((x) => `<span class="mc-chip dc">${nmOf(x.element)}<small dir="ltr">${x.value}</small><em>+2</em></span>`).join('') + near.map((x) => `<span class="mc-chip near">${nmOf(x.element)}<small dir="ltr">${x.value}/${DCT(x.element)}</small></span>`).join(''); };
+  const events = `<div class="mc-card-box">
+    ${evRow(I('i-goal', 'i', 'width:15px;height:15px'), t('goals'), goalsOwn)}
+    ${evRow('<b class="mc-a">A</b>', t('assists'), list('assists'))}
+    ${evRow('<i class="mc-card y" style="margin:0"></i>', tt('البطاقات', 'Cards'), cards)}
+    ${evRow(I('i-target', 'i', 'width:15px;height:15px'), tt('ضربات جزاء', 'Penalties'), pens)}
+    ${evRow(I('i-shield', 'i', 'width:15px;height:15px'), tt('تصديات', 'Saves'), list('saves', (x) => `<small>${x.value}</small>`))}
+  </div>`;
+  const bps = st('bps'), topB = [...bps.h.map((x) => ({ ...x, s: 'h' })), ...bps.a.map((x) => ({ ...x, s: 'a' }))].sort((a, b) => b.value - a.value).slice(0, 3);
+  const bonusBox = `<div class="mc-sec"><h4>${I('i-star', 'i', 'width:15px;height:15px')}${tt('البونص', 'Bonus')}${live ? `<small>${tt('مؤقت حسب BPS', 'provisional')}</small>` : ''}</h4>
+    ${st('bonus').h.length || st('bonus').a.length ? `<div class="mc-two"><div class="mc-side h">${bonusSide(st, 'h') || '<span class="mc-none">—</span>'}</div><div class="mc-side a">${bonusSide(st, 'a') || '<span class="mc-none">—</span>'}</div></div>` : topB.length ? `<div class="mc-bps">${topB.map((x, k) => `<div><i class="b${3 - k}">${3 - k}</i><b>${nmOf(x.element)}</b><small>${tShort(x.s === 'h' ? f.h : f.a)} · BPS ${x.value}</small></div>`).join('')}</div>` : '<p class="mc-none">—</p>'}</div>`;
+  const dcH = dcSide(st, 'h'), dcA = dcSide(st, 'a');
+  const dcBox = st('defensive_contribution').h.length || st('defensive_contribution').a.length ? `<div class="mc-sec"><h4>${I('i-shield', 'i', 'width:15px;height:15px')}${tt('المساهمات الدفاعية', 'Defensive contributions')}<small>${tt('مدافع 10 · وسط ومهاجم 12', 'DEF 10 · MID/FWD 12')}</small></h4>
+    <div class="mc-two"><div class="mc-side h">${dcH || '<span class="mc-none">—</span>'}</div><div class="mc-side a">${dcA || '<span class="mc-none">—</span>'}</div></div></div>` : '';
+  // ترتيب نقاط الفانتازي بالمباراة
+  let fpBox = '';
+  if (L) {
+    const rows = ST.G.players.filter((p) => (p.team === f.h || p.team === f.a) && L[p.id]?.minutes > 0).map((p) => ({ p, pts: L[p.id].total_points, min: L[p.id].minutes })).sort((a, b) => b.pts - a.pts).slice(0, 8);
+    const mx = Math.max(1, ...rows.map((r) => r.pts));
+    if (rows.length) fpBox = `<div class="mc-sec"><h4>${I('i-chart', 'i', 'width:15px;height:15px')}${tt('أعلى نقاط فانتازي بالمباراة', 'Top fantasy points')}</h4>
+      ${rows.map((r, k) => `<button class="mc-fp" onclick="closeSheet();setTimeout(()=>playerGW(${r.p.id},${ev}),200)"><span class="mc-rk">${k + 1}</span><span class="mini-sh">${pShirt(r.p)}</span><span class="mc-fpn"><b>${esc(r.p.name)}</b><small>${tShort(r.p.team)} · ${r.min}′</small></span><span class="mc-bar"><i style="width:${(Math.max(0, r.pts) / mx) * 100}%"></i></span><b class="num mc-pts">${r.pts}</b></button>`).join('')}</div>`;
+  }
+  return board + events + bonusBox + dcBox + fpBox + mineBlock(f, ev);
 }
-function openMatchC(fid, ev) {
+function mineBlock(f, ev) {
+  const squad = ST.plan ? [...ST.plan.xi, ...ST.plan.bench].map(PM).filter((p) => p && (p.team === f.h || p.team === f.a)) : [];
+  if (!squad.length) return '';
+  const L = mcLive[ev];
+  return `<div class="mc-sec mine"><h4>${I('i-users', 'i', 'width:15px;height:15px')}${tt('لاعبينك بهالمباراة', 'Your players')}</h4>${squad.map((p) => { const s = L?.[p.id]; return `<button class="mc-fp" onclick="closeSheet();setTimeout(()=>playerGW(${p.id},${ev}),200)"><span class="mini-sh">${pShirt(p)}</span><span class="mc-fpn"><b>${esc(p.name)}</b><small>${tShort(p.team)} · ${s ? s.minutes + '′' : '—'}</small></span><b class="num mc-pts">${s ? s.total_points : '—'}</b></button>`; }).join('')}</div>`;
+}
+async function openMatchC(fid, ev) {
   const f = (ST.G.fx[ev] || []).find((x) => x.id === fid); if (!f) return;
-  const statRows = (key, label) => { const s = f.stats.find((x) => x.identifier === key); if (!s || (!s.h.length && !s.a.length)) return ''; const nm = (arr) => arr.map((x) => `${esc(PM(x.element)?.name || '#' + x.element)}${x.value > 1 ? ' ×' + x.value : ''}`).join('<br>'); return `<div class="evt"><span style="flex:1;text-align:start">${nm(s.h)}</span><b class="mut" style="font-size:12px">${label}</b><span style="flex:1;text-align:end">${nm(s.a)}</span></div>`; };
-  const squad = ST.plan ? [...ST.plan.xi, ...ST.plan.bench].map(PM).filter((p) => p.team === f.h || p.team === f.a) : [];
-  openSheet(`${sheetHead(I('i-live'), `${tName(f.h)} × ${tName(f.a)}`, `${t('gw')} ${ev} · ${fmtTime(f.ko)}`)}
-   <div class="fx-card card"><div class="tm">${crest(tShort(f.h), 54)}<b>${tName(f.h)}</b>${f.hd ? `<span class="rate f${f.hd}">FDR ${f.hd}</span>` : ''}</div><div class="mid">${f.started ? `<div class="score fx-sc" style="font-size:34px"><span>${f.hs ?? 0}</span><i>-</i><span>${f.as ?? 0}</span></div><span class="${f.fin ? 'mut' : 'livebadge'}">${f.fin ? tt('انتهت', 'Full time') : (f.min || '') + '′'}</span>` : `<b>VS</b>`}</div><div class="tm">${crest(tShort(f.a), 54)}<b>${tName(f.a)}</b>${f.ad ? `<span class="rate f${f.ad}">FDR ${f.ad}</span>` : ''}</div></div>
-   ${f.started ? `<div class="card" style="margin-top:10px">${[['goals_scored', t('goals')], ['assists', t('assists')], ['yellow_cards', tt('صفراء', 'Yellow')], ['red_cards', tt('حمراء', 'Red')], ['saves', tt('إنقاذات', 'Saves')], ['bonus', t('bonus')]].map((x) => statRows(...x)).join('') + dcRows(f) || `<p class="mut">${tt('ما في أحداث مسجلة بعد', 'No events yet')}</p>`}</div>` : `<p class="mut" style="margin-top:10px">${tt('الإحصائيات تظهر بعد بداية المباراة', 'Stats appear after kick-off')}</p>`}
-   ${squad.length ? `<div class="sec" style="margin-top:12px"><h2 style="font-size:15px">${tt('لاعبينك بهالمباراة', 'Your players')}</h2></div>${squad.map((p) => `<div class="row tap" onclick="closeSheet();setTimeout(()=>playerGW(${p.id},${ev}),200)"><div class="mini">${pShirt(p)}</div><div class="info"><b>${esc(p.name)}</b><span>${ST.live?.[p.id]?.minutes ?? 0}′</span></div><div class="col" style="color:#34D399;font-size:18px">${ev === ST.G.cur ? ST.live?.[p.id]?.total_points ?? '—' : '—'}</div></div>`).join('')}` : ''}`);
+  if (ev === ST.G.cur && ST.live && ST.liveRawGW === ev) mcLive[ev] = ST.live;
+  openSheet(`<div class="mc-head"><span>${t('gw')} ${ev} · ${fmtTime(f.ko)}</span><button class="icon-btn" onclick="closeSheet()" aria-label="close">${I('i-x')}</button></div><div id="mcBody">${mcBody(f, ev)}</div>`);
+  if (f.started && (!mcLive[ev] || ev === ST.G.cur)) {
+    try { const l = await FPL.loadLive(ev); mcLive[ev] = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); const el = document.getElementById('mcBody'); if (el) el.innerHTML = mcBody(f, ev); } catch {}
+  }
 }
 Object.assign(window, { lvGW: (g) => { gwSel = g; window.render(); setTimeout(() => document.querySelector('#lvseg .on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 30); }, lvRefresh: () => refreshLive(true), openMatchC });
 export function afterLive() {
