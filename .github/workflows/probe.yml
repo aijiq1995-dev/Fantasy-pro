@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          B=https://fantasy-pro-aijo0.vercel.app
+          sleep 75; B=https://fantasy-pro-aijo0.vercel.app
           curl -s "$B/api/fpl?path=entry/5315212/" > e.json; python3 -c "import json;d=json.load(open('e.json'));print([(l['id'],l['name']) for l in d['leagues']['classic']][:12]);print([(l['id'],l['name']) for l in d['leagues']['h2h']])"
           IDS=$(python3 -c "import json;d=json.load(open('e.json'));print(' '.join(str(l['id']) for l in d['leagues']['classic'] if l.get('league_type')=='x')+' '+' '.join('h'+str(l['id']) for l in d['leagues']['h2h']))")
           echo "IDS $IDS"
