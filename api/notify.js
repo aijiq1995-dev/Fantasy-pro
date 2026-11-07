@@ -76,6 +76,11 @@ export default async function handler(req, res) {
     const predictTime = hourUTC >= 17 && hourUTC <= 22;
     const pred = new Map();
     if (predictTime) for (const e of boot.elements) {
+      if (e.price_change_percent != null && e.price_change_percent !== '') { // توقع الفانتازي الرسمي
+        const nx = (e.price_change_projections || []).find((x) => +x.offset === 0), v = nx ? +nx.projected_percent : +e.price_change_percent;
+        if (!e.price_change_locked_until && v >= 100) pred.set(e.id, 1); else if (!e.price_change_locked_until && v <= -100) pred.set(e.id, -1);
+        continue;
+      }
       const owners = Math.max(1, (parseFloat(e.selected_by_percent) / 100) * total), net = (e.transfers_in_event || 0) - (e.transfers_out_event || 0);
       let thr = Math.max(15000, owners * 0.06); if (net < 0 && e.status !== 'a') thr *= 0.55; if (e.cost_change_event) thr *= 1.25;
       const prog = (net / thr) * 100; if (prog >= 95) pred.set(e.id, 1); else if (prog <= -95) pred.set(e.id, -1);

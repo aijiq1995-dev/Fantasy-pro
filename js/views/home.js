@@ -40,7 +40,7 @@ function actions() {
   const s = suggestions(P, 1)[0];
   if (s) out.push({ ic: 'i-swap', col: 'var(--acc)', h: tt('أفضل انتقال متاح', 'Best transfer'), d: `${esc(s.o.name)} ← <b>${esc(s.c.name)}</b> · +${s.g} xP/3`, b: [tt('جرّبه بالمختبر', 'Test in lab'), `labPreset(${s.o.id},${s.c.id})`] });
   const pf = P.squad.map(PM).map((p) => [p, pricePredict(p)]).filter((x) => x[1].prog <= -70).sort((a, b) => a[1].prog - b[1].prog);
-  if (pf.length) out.push({ ic: 'i-down', col: 'var(--bad)', h: tt(`${pf.length} من لاعبينك سعره ممكن ينزل`, `${pf.length} of your players may drop in price`), d: pf.slice(0, 3).map(([p, r]) => `${esc(p.name)} ${r.prog}%`).join(' · ') + tt(' (تقدير)', ' (estimate)'), b: [t('prices'), "go('prices')"] });
+  if (pf.length) out.push({ ic: 'i-down', col: 'var(--bad)', h: tt(`${pf.length} من لاعبينك سعره ممكن ينزل`, `${pf.length} of your players may drop in price`), d: pf.slice(0, 3).map(([p, r]) => `${esc(p.name)} ${r.prog}%`).join(' · ') + (pricePredict(pf[0][0]).official ? '' : tt(' (تقدير)', ' (estimate)')), b: [t('prices'), "go('prices')"] });
   const dg = dgwBgw(G.next, Math.min(G.lastGW, G.next + 3)).find((x) => x.dbl.length);
   if (dg) out.push({ ic: 'i-bolt', col: 'var(--violet)', h: tt(`جولة مزدوجة GW${dg.gw}`, `Double GW${dg.gw}`), d: dg.dbl.map(tShort).join('، ') + tt(' — وقت مناسب للأوراق', ' — chip opportunity'), b: [t('chips'), "go('chips')"] });
   return out.slice(0, 4);

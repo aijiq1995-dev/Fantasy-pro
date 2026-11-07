@@ -1,12 +1,18 @@
 /* =========================================================
    تقديرات محسوبة من البيانات الرسمية (مثل مواقع التتبع):
    1) توقع تغيّر الأسعار  2) الترتيب المباشر التقديري
-   كلها تقديرية — خوارزمية الفانتازي الحقيقية غير منشورة
+   الأسعار: نستخدم توقع الفانتازي الرسمي (price_change_percent) إذا متوفر، وإلا تقدير من صافي الانتقالات
 ========================================================= */
 import { ST } from './store.js';
 
 /** تقدّم اللاعب نحو تغيّر السعر (−100..+100 = حد التغيير التقريبي) */
 export function pricePredict(p) {
+  // توقع الفانتازي الرسمي (موجود بالبيانات من موسم 2026/27): التقدّم نحو التغيير + توقع التحديث الجاي
+  if (p.pcp != null) {
+    const next = p.pcProj?.find((x) => x.o === 0), pct = next ? next.pct : p.pcp, lik = next?.lik ?? null;
+    const state = p.pcLock ? 'locked' : pct >= 100 ? 'rise' : pct <= -100 ? 'fall' : (lik >= 4 || pct >= 85) ? 'near-rise' : (lik <= -4 || pct <= -85) ? 'near-fall' : 'stable';
+    return { net: (p.tin || 0) - (p.tout || 0), prog: Math.max(-150, Math.min(150, Math.round(p.pcp))), next: Math.round(pct), lik, state, official: true, cal: p.pcCal, lock: p.pcLock, proj: p.pcProj };
+  }
   const N = ST.G.totalPlayers || 10e6, owners = Math.max(1, (p.own / 100) * N);
   const net = (p.tin || 0) - (p.tout || 0);
   // العتبة تكبر مع عدد المالكين؛ اللاعب المصاب/الغائب ينزل أسرع
@@ -18,7 +24,7 @@ export function pricePredict(p) {
   const state = prog >= 100 ? 'rise' : prog >= 70 ? 'near-rise' : prog <= -100 ? 'fall' : prog <= -70 ? 'near-fall' : 'stable';
   return { net, prog, state, owners: Math.round(owners) };
 }
-export const PRICE_LABEL = (s, tt) => ({ rise: tt('متوقع يصعد', 'Likely to rise'), 'near-rise': tt('قريب من الصعود', 'Close to rising'), fall: tt('متوقع ينزل', 'Likely to fall'), 'near-fall': tt('قريب من النزول', 'Close to falling'), stable: tt('مستقر', 'Stable') }[s]);
+export const PRICE_LABEL = (s, tt) => ({ locked: tt('سعره مقفول مؤقتاً', 'Price locked'), rise: tt('متوقع يصعد', 'Likely to rise'), 'near-rise': tt('قريب من الصعود', 'Close to rising'), fall: tt('متوقع ينزل', 'Likely to fall'), 'near-fall': tt('قريب من النزول', 'Close to falling'), stable: tt('مستقر', 'Stable') }[s]);
 
 /* ---------- توزيع طبيعي ---------- */
 const erf = (x) => { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x); const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return s * y; };
