@@ -1,0 +1,23 @@
+name: probe
+on: { push: { paths: ['.github/workflows/probe.yml'] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=20261107" > sb.json
+          python3 - <<'PY'
+          import json,urllib.request
+          d=json.load(open('sb.json'))
+          for e in d.get('events',[]): print(e['id'],e['name'],e['status']['type']['name'])
+          ev=[e for e in d.get('events',[]) if 'Leeds' in e['name']]
+          if ev:
+            s=json.load(urllib.request.urlopen(f"https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/summary?event={ev[0]['id']}"))
+            print('keys',list(s.keys()))
+            for r in s.get('rosters',[]):
+              print('TEAM',r['team']['abbreviation'], r.get('formation'))
+              for p in r.get('roster',[])[:30]:
+                print(' ',p.get('starter'),p.get('subbedIn'),p.get('subbedOut'),p['athlete'].get('displayName'),p.get('position',{}).get('abbreviation'),p.get('formationPlace'), json.dumps(p.get('plays',[]))[:300])
+            print('KEYEV',[ (k.get('type',{}).get('text'),k.get('clock',{}).get('displayValue'),k.get('text','')[:90]) for k in s.get('keyEvents',[]) if 'Sub' in k.get('type',{}).get('text','')])
+          PY
+          curl -s -o /dev/null -w "pulse %{http_code}\n" -H "Origin: https://www.premierleague.com" "https://footballapi.pulselive.com/football/fixtures?comps=1&compSeasons=&page=0&pageSize=5"
