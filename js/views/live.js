@@ -182,28 +182,35 @@ function matchLineup(f, L, team) {
     const cand = offs.filter((o) => !used.has(o.p.id)).sort((a, b) => score(a) - score(b))[0];
     if (cand) { used.add(cand.p.id); pair.set(cand.p.id, on); }
   });
+  // بدلاء ما انربطوا: غالباً دخلوا بالوقت بدل الضايع واللي طلع محسوبله 90 دقيقة — نربطهم بأقرب لاعب بنفس المركز (تقريبي)
+  const approx = new Set();
+  [...sb].filter((x) => ![...pair.values()].includes(x)).sort((a, b) => a.s.minutes - b.s.minutes).forEach((on) => {
+    const pool = st.filter((o) => !used.has(o.p.id) && !o.s.red_cards);
+    const cand = pool.sort((a, b) => (a.p.pos === on.p.pos ? 0 : 1) - (b.p.pos === on.p.pos ? 0 : 1) || (a.s.bps ?? 0) - (b.s.bps ?? 0))[0];
+    if (cand) { used.add(cand.p.id); pair.set(cand.p.id, on); approx.add(cand.p.id); }
+  });
   const leftover = sb.filter((x) => ![...pair.values()].includes(x));
-  return { st, pair, leftover, offs: st.filter((x) => pair.has(x.p.id)) };
+  return { st, pair, leftover, approx, offs: st.filter((x) => pair.has(x.p.id)) };
 }
 function lineupBox(f, ev, L) {
   const team = mcSide === 'h' ? f.h : f.a, lu = matchLineup(f, L, team);
   const tabs = `<div class="mc-tabs"><button class="${mcSide === 'h' ? 'on' : ''}" onclick="mcSideSet('h',${f.id},${ev})">${tName(f.h)}</button><button class="${mcSide === 'a' ? 'on' : ''}" onclick="mcSideSet('a',${f.id},${ev})">${tName(f.a)}</button></div>`;
   if (!lu) return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة', 'Lineups')}</h4>${tabs}<p class="mc-none">${tt('التشكيلة تظهر أول ما تبدي المباراة', 'Lineups appear at kick-off')}</p></div>`;
   const live = f.started && !f.fin;
-  const card = (x, badge, onPitch = true, lone = false) => `<button class="rvp-pl ${onPitch ? '' : 'out'}" onclick="closeSheet();setTimeout(()=>playerGW(${x.p.id},${ev}),200)">
+  const card = (x, badge, onPitch = true, lone = false, ap = false) => `<button class="rvp-pl ${onPitch ? '' : 'out'}" onclick="closeSheet();setTimeout(()=>playerGW(${x.p.id},${ev}),200)">
       <div class="rvp-sh">${pShirt(x.p)}${badge === 'in' ? '<i class="rvp-b in">↑</i>' : badge === 'out' ? '<i class="rvp-b outb">↓</i>' : ''}${x.s.yellow_cards ? '<i class="mc-yc"></i>' : ''}${x.s.red_cards ? '<i class="mc-yc r"></i>' : ''}</div>
-      <span class="rvp-nm">${esc(x.p.name)}</span><span class="rvp-pt ${live && onPitch ? 'live' : ''}">${x.s.total_points}</span><small class="mc-min">${badge === 'in' && !lone ? `${total(x)}′↑` : badge === 'in' ? `${x.s.minutes}′` : badge === 'out' ? `${x.s.minutes}′↓` : `${x.s.minutes}′`}</small></button>`;
+      <span class="rvp-nm">${esc(x.p.name)}</span><span class="rvp-pt ${live && onPitch ? 'live' : ''}">${x.s.total_points}</span><small class="mc-min">${badge === 'in' && ap ? `${T >= 90 ? '90+' : T}′↑~` : badge === 'in' && !lone ? `${total(x)}′↑` : badge === 'in' ? `${x.s.minutes}′` : badge === 'out' ? `${x.s.minutes}′↓${ap ? '~' : ''}` : `${x.s.minutes}′`}</small></button>`;
   const T = f.fin ? 90 : Math.min(90, f.min || 0), total = (x) => Math.max(0, T - x.s.minutes);
-  const slots = lu.st.map((x) => (lu.pair.has(x.p.id) ? { x: lu.pair.get(x.p.id), pos: x.p.pos, b: 'in' } : { x, pos: x.p.pos, b: '' }));
+  const slots = lu.st.map((x) => (lu.pair.has(x.p.id) ? { x: lu.pair.get(x.p.id), pos: x.p.pos, b: 'in', ap: lu.approx.has(x.p.id) } : { x, pos: x.p.pos, b: '' }));
   const lines = ['GK', 'DEF', 'MID', 'FWD'].map((pos) => slots.filter((z) => z.pos === pos)).filter((l) => l.length);
-  const bench = [...lu.offs.map((x) => card(x, 'out', false)), ...lu.leftover.map((x) => card(x, 'in', false, true))];
+  const bench = [...lu.offs.map((x) => card(x, 'out', false, false, lu.approx.has(x.p.id))), ...lu.leftover.map((x) => card(x, 'in', false, true))];
   const pts = slots.reduce((a, z) => a + z.x.s.total_points, 0) + lu.offs.reduce((a, x) => a + x.s.total_points, 0) + lu.leftover.reduce((a, x) => a + x.s.total_points, 0);
   return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة والنقاط', 'Lineups & points')}${live ? `<small>${tt('مباشر', 'live')}</small>` : ''}</h4>${tabs}
     <div class="mc-lu-sum"><span>${tt('مجموع نقاط الفريق', 'Team fantasy points')}</span><b class="num">${pts}</b></div>
-    <div class="rvp mc-pitch"><div class="rvp-lines"><i class="box t"></i><i class="six t"></i><i class="mid"></i><i class="circle"></i><i class="box b"></i><i class="six b"></i></div>${lines.map((l) => `<div class="rvp-row">${l.map((z) => card(z.x, z.b)).join('')}</div>`).join('')}</div>
+    <div class="rvp mc-pitch"><div class="rvp-lines"><i class="box t"></i><i class="six t"></i><i class="mid"></i><i class="circle"></i><i class="box b"></i><i class="six b"></i></div>${lines.map((l) => `<div class="rvp-row">${l.map((z) => card(z.x, z.b, true, false, z.ap)).join('')}</div>`).join('')}</div>
     <div class="rvp-bench"><span class="rvp-bl">${tt('البدلاء — اللي طلعوا', 'Substituted')}</span>${bench.length ? `<div class="rvp-row" style="flex-wrap:wrap">${bench.join('')}</div>` : `<p class="mc-none" style="text-align:center">${tt('ماكو تبديلات لحد هسة', 'No substitutions yet')}</p>`}</div>
     <div class="rvp-legend"><span><i class="rvp-b in" style="position:static">↑</i>${tt('دخل', 'On')}</span><span><i class="rvp-b outb" style="position:static">↓</i>${tt('طلع', 'Off')}</span></div>
-    <p class="mc-none" style="font-size:10.5px;text-align:center;margin-top:6px">${tt('التشكيلة والتبديلات مأخوذة من دقائق اللعب بالفانتازي؛ الدكة اللي ما لعبت ما ينشرها الفانتازي.', 'Built from FPL minutes; unused subs are not published by FPL.')}</p></div>`;
+    <p class="mc-none" style="font-size:10.5px;text-align:center;margin-top:6px">${tt('التشكيلة والتبديلات مأخوذة من دقائق اللعب بالفانتازي. علامة ~ تعني تبديل بالوقت بدل الضايع والفانتازي يحسب للخارج 90 دقيقة، فاللاعب الخارج تقديري.', 'Built from FPL minutes. ~ = stoppage-time change; the player off is estimated.')}</p></div>`;
 }
 function mineBlock(f, ev) {
   const squad = ST.plan ? [...ST.plan.xi, ...ST.plan.bench].map(PM).filter((p) => p && (p.team === f.h || p.team === f.a)) : [];
