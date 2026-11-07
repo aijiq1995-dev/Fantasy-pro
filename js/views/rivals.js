@@ -263,7 +263,7 @@ function sheetBody(entry, gw = gw) {
   const rows = m.calc?.rows || [], R = (id) => rows.find((r) => r.id === id);
   const ps = [...m.picks.picks].sort((a, b) => a.position - b.position), mine = new Set((me?.picks?.picks || []).map((p) => p.element));
   const hit = m.picks.entry_history?.event_transfers_cost || 0, gap = !isMe && me?.calc && m.calc ? m.calc.total - me.calc.total : null;
-  const stats = `<div class="rvs-stats"><div class="main"><b class="num">${m.calc?.total ?? '—'}</b><span>${tt('نقاطه بالجولة', 'GW points')}</span></div>
+  const stats = `<div class="rvs-stats"><div class="main">${m.calc?.hit ? `<div class="rvs-net"><s class="num">${m.calc.raw}</s><b class="num">${m.calc.total}</b></div>` : `<b class="num">${m.calc?.total ?? '—'}</b>`}<span>${m.calc?.hit ? tt(`نقاطه بالجولة (بعد خصم ${m.calc.hit})`, `GW points (after −${m.calc.hit})`) : tt('نقاطه بالجولة', 'GW points')}</span></div>
     ${gap != null ? `<div><b class="num ${gap > 0 ? 'down' : gap < 0 ? 'up' : ''}">${gap > 0 ? '+' : ''}${gap}</b><span>${gap > 0 ? tt('متقدم عليك', 'ahead of you') : gap < 0 ? tt('وراك', 'behind you') : tt('متعادلين', 'level')}</span></div>` : ''}
     <div><b>${m.picks.active_chip ? CHIP[m.picks.active_chip] || m.picks.active_chip : '—'}</b><span>${tt('الكرت', 'Chip')}</span></div>
     <div><b class="num ${hit ? 'down' : ''}">${hit ? '−' + hit : '0'}</b><span>${tt('خصم', 'Hit')}</span></div></div>`;

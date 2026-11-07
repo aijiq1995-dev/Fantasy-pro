@@ -887,3 +887,6 @@ body.busy .topbar .av{animation:pulse 1s infinite}
 .mc-yc{position:absolute;bottom:2px;right:-4px;width:9px;height:12px;border-radius:2px;background:#FACC15;box-shadow:0 0 0 1.5px rgba(0,0,0,.35)}
 .mc-yc.r{background:#EF4444;right:6px}
 .mc-pitch .rvp-pl{width:min(72px,calc((100vw - 70px)/5.2))}.mc-pitch .rvp-nm,.mc-pitch .rvp-pt{max-width:100%}
+.rvs-net{display:flex;align-items:baseline;gap:6px;direction:ltr}
+.rvs-net s{font-size:15px;font-weight:700;color:var(--mut);text-decoration:line-through;text-decoration-color:var(--bad);text-decoration-thickness:2px}
+.rvs-stats .main span{white-space:normal;text-align:center;line-height:1.3}
