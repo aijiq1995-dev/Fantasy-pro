@@ -68,7 +68,7 @@ async function rivalSheet(entry, name) {
 }
 /* الفروقات بين فريقك وفريق المنافس بالجولة الحالية */
 async function rivalDiff(entry, name) {
-  const gw = ST.G.cur, host = document.querySelector('.sheet'); if (!host || !gw) return;
+  const gw = ST.G.cur, host = document.querySelector('.sheet .sh-body') || document.querySelector('.sheet'); if (!host || !gw) return;
   const box = document.createElement('div'); host.appendChild(box);
   try {
     const [a, b] = await Promise.all([FPL.fetchPicks(ST.profile.teamId, gw), FPL.fetchPicks(entry, gw)]);

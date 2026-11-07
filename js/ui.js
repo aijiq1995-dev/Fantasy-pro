@@ -13,8 +13,27 @@ export const LS = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 export function toast(m) { const d = document.createElement('div'); d.className = 'tst'; d.textContent = m; $('#toast').appendChild(d); setTimeout(() => d.remove(), 3200); }
-export function openSheet(html, after) { $('#sheetRoot').innerHTML = `<div class="ov" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grab"></div>${html}</div></div>`; after && after(); }
-export function closeSheet() { $('#sheetRoot').innerHTML = ''; }
+/* الأوراق (sheets) مع زر رجوع: إذا انفتحت ورقة من داخل ورقة ثانية نحفظ السابقة ونرجعلها */
+let sheetStack = [], pendingBack = null;
+const curSnap = () => { const b = $('#sheetRoot .sh-body'); return b ? { html: b.innerHTML, y: $('#sheetRoot .sheet')?.scrollTop || 0 } : null; };
+function renderSheet(html, y = 0) {
+  const back = sheetStack.length ? `<button class="sh-back" onclick="sheetBack()" aria-label="back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg><span>${tt('رجوع', 'Back')}</span></button>` : '';
+  $('#sheetRoot').innerHTML = `<div class="ov" onclick="if(event.target===this)closeSheet(true)"><div class="sheet"><div class="grab"></div>${back}<div class="sh-body">${html}</div></div></div>`;
+  if (y) { const sh = $('#sheetRoot .sheet'); if (sh) sh.scrollTop = y; }
+}
+export function openSheet(html, after) {
+  const open = !!$('#sheetRoot .sh-body');
+  if (!open) { if (pendingBack && Date.now() - pendingBack.t < 900) sheetStack = [...pendingBack.stack, pendingBack.snap]; else sheetStack = []; }
+  pendingBack = null;
+  renderSheet(html); after && after();
+}
+export function closeSheet(hard = false) {
+  const snap = curSnap();
+  pendingBack = !hard && snap ? { snap, stack: sheetStack, t: Date.now() } : null;
+  sheetStack = []; $('#sheetRoot').innerHTML = '';
+}
+export function sheetBack() { const prev = sheetStack.pop(); if (!prev) return closeSheet(true); renderSheet(prev.html, prev.y); }
+window.sheetBack = sheetBack;
 export const sheetHead = (icon, title, sub = '', bg = 'var(--g1)', fg = '#052E1F') => `<div class="sh-head"><div style="width:46px;height:46px;border-radius:15px;background:${bg};display:grid;place-items:center;color:${fg};flex-shrink:0">${icon}</div><div style="flex:1;min-width:0"><h3>${title}</h3>${sub ? `<div class="mut" style="font-size:12.5px">${sub}</div>` : ''}</div><button class="icon-btn" onclick="closeSheet()">${I('i-x')}</button></div>`;
 export const header = (title, sub = '', right = '') => `<div class="sec" style="margin-top:4px"><div><h2 style="font-size:20px">${title}</h2>${sub ? `<div class="mut" style="font-size:12.5px">${sub}</div>` : ''}</div>${right}</div>`;
 

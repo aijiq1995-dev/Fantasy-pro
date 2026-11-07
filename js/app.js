@@ -207,14 +207,14 @@ export function go(v, opts = {}) {
 }
 function updateBack() { const b = $('#tbBack'); if (b) b.classList.toggle('hidden', !NAV_STACK.length && ST.view === 'home'); }
 export function goBack() {
-  if (document.querySelector('.ov')) return window.closeSheet();
+  if (document.querySelector('.ov')) return document.querySelector('.sh-back') ? window.sheetBack() : window.closeSheet(true);
   if (window.__backHook && window.__backHook()) return;
   if (NAV_STACK.length) return history.back();
   if (ST.view !== 'home') go('home', { back: true });
 }
 window.addEventListener('popstate', () => {
   if (!ST.G) return;
-  if (document.querySelector('.ov')) { window.closeSheet(); try { history.pushState({ v: ST.view }, '', '#' + ST.view); } catch {} return; }
+  if (document.querySelector('.ov')) { document.querySelector('.sh-back') ? window.sheetBack() : window.closeSheet(true); try { history.pushState({ v: ST.view }, '', '#' + ST.view); } catch {} return; }
   if (window.__backHook && window.__backHook()) { try { history.pushState({ v: ST.view }, '', '#' + ST.view); } catch {} return; }
   const e = NAV_STACK.pop(); const v = e?.v || location.hash.slice(1) || 'home';
   go(v, { back: true, y: e?.y || 0 });
