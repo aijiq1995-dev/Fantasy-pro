@@ -21,14 +21,19 @@ function leagues() {
 }
 const gwStarted = () => { const ev = ST.G.events.find((e) => e.id === ST.G.cur); return ev && new Date(ev.deadline) < new Date(); };
 /* نقاط مباشرة خاصة بالمتتبّع: تنجلب طازجة وتتحدث كل 30 ثانية وقت المباريات */
-let LV = { gw: 0, map: null, at: 0 }, lvTimer = 0, openEntry = null;
+let LV = { gw: 0, map: null, at: 0 }, lvTimer = 0, openEntry = null, openGW = null;
+const LVG = {}, XG = {}, MT = {}; let mtGW = null;
 const isLiveGW = (g) => (ST.G.fx[g] || []).some((f) => f.started && !f.fin);
 async function ensureLive(gw, fresh = false) {
   if (!fresh && LV.gw === gw && LV.map && Date.now() - LV.at < 25e3) return;
-  const l = await FPL.loadLive(gw, fresh); LV = { gw, map: Object.fromEntries(l.elements.map((x) => [x.id, x.stats])), at: Date.now() };
+  const l = await FPL.loadLive(gw, fresh); LV = { gw, map: Object.fromEntries(l.elements.map((x) => [x.id, x.stats])), at: Date.now() }; LVG[gw] = LV.map;
   if (gw === ST.G.cur) { ST.live = LV.map; ST.liveRaw = l.elements; ST.liveRawGW = gw; }
 }
-const lpts = (id) => LV.map?.[id]?.total_points ?? 0;
+const liveMap = (gw) => (gw === LV.gw ? LV.map : LVG[gw]);
+async function liveFor(gw, fresh = false) { if (!fresh && LVG[gw]) return LVG[gw]; const l = await FPL.loadLive(gw, fresh); LVG[gw] = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); if (gw === LV.gw) LV = { gw, map: LVG[gw], at: Date.now() }; return LVG[gw]; }
+const lpts = (id, gw = S.gw) => liveMap(gw)?.[id]?.total_points ?? 0;
+/** بيانات فريق بجولة معيّنة (الجولة الحالية من القائمة، والباقي من كاش الجولات) */
+const entryFor = (e, gw) => (gw === S.gw ? S.members?.find((x) => x.entry === e) || S.extra?.[e] : XG[gw]?.[e]);
 const recalc = (m) => { if (m?.picks) m.calc = liveCalc(m.picks, S.gw ?? LV.gw, undefined, LV.map); };
 function startLiveTimer() {
   clearInterval(lvTimer);
@@ -37,7 +42,8 @@ function startLiveTimer() {
     if (document.hidden || !isLiveGW(S.gw)) return;
     try { await ensureLive(S.gw, true); } catch { return; }
     S.members.forEach(recalc); Object.values(S.extra || {}).forEach(recalc);
-    if (openEntry && document.getElementById('rvSheet')) document.getElementById('rvSheet').innerHTML = sheetBody(openEntry);
+    Object.values(XG[S.gw] || {}).forEach(recalc);
+    if (openEntry && document.getElementById('rvSheet')) document.getElementById('rvSheet').innerHTML = sheetBody(openEntry, openGW);
     else if (!document.querySelector('.ov')) window.render();
   }, 30e3);
 }
@@ -112,11 +118,11 @@ function standings() {
 }
 
 /* ---------- الرسم ---------- */
-function diffs(me, them) {
+function diffs(me, them, gw = S.gw) {
   const mm = new Map((me?.picks?.picks || []).map((p) => [p.element, p.multiplier])), tm = new Map((them?.picks?.picks || []).map((p) => [p.element, p.multiplier]));
   const ids = new Set([...mm.keys(), ...tm.keys()]); const mine = [], theirs = [];
   ids.forEach((id) => { const a = mm.get(id) || 0, b = tm.get(id) || 0; if (a > b) mine.push({ id, d: a - b }); else if (b > a) theirs.push({ id, d: b - a }); });
-  const pts = (id) => lpts(id);
+  const pts = (id) => lpts(id, gw);
   return { mine: mine.sort((x, y) => pts(y.id) * y.d - pts(x.id) * x.d), theirs: theirs.sort((x, y) => pts(y.id) * y.d - pts(x.id) * x.d) };
 }
 function threats(members, meE) {
@@ -140,6 +146,46 @@ function rivalCard(m, me, i) {
     <div class="mut" style="font-size:12px;margin-top:2px">${capP ? `${I('i-crown', 'i', 'width:12px;height:12px;vertical-align:-2px;color:var(--gold)')} ${esc(capP.name)} (${lpts(capP.id) * (cap.multiplier || 2)})` : tt('التشكيلة تنكشف بعد الإغلاق', 'Hidden until deadline')}${!isMe && m.tr?.length ? ` · ${I('i-swap', 'i', 'width:12px;height:12px;vertical-align:-2px')} ${m.tr.length}${hit ? ` <span class="down">(−${hit})</span>` : ''}` : ''}</div>
     ${!isMe && m.tr?.length ? `<div class="rv-tr">${m.tr.slice(0, 3).map((x) => `<span><b class="up">${esc(PM(x.element_in)?.name || '?')}</b> ← <s class="mut">${esc(PM(x.element_out)?.name || '?')}</s></span>`).join('')}</div>` : ''}</div>
    <div class="rv-pts"><b class="num">${live ?? '—'}</b><small>${tt('الجولة', 'GW')}</small>${gap != null ? `<span class="${gap > 0 ? 'down' : gap < 0 ? 'up' : 'mut'}" style="font-size:11px">${gap > 0 ? '+' + gap : gap}</span>` : ''}</div></div>`;
+}
+
+
+/* ---------- كل مباريات دوري الـ H2H لكل جولة ---------- */
+async function loadMT(L, g, fresh = false) {
+  const k = `${L.id}:${g}`; if (!fresh && MT[k]?.rows) return;
+  MT[k] = { ...(MT[k] || {}), busy: true };
+  try {
+    let page = 1, rows = [], more = true;
+    while (more && page <= 5) { const r = await FPL.loadH2HMatches(L.id, g, page, fresh); rows = rows.concat(r?.results || []); more = !!r?.has_next; page++; }
+    MT[k] = { rows, at: Date.now() };
+  } catch { MT[k] = { rows: MT[k]?.rows || null, err: true }; }
+  if (ST.view === 'rivals' && sel?.id === L.id && mtGW === g) { const el = document.getElementById('rvMT'); if (el) el.innerHTML = matchesInner(); }
+}
+function matchesInner() {
+  const L = sel, g = mtGW, k = `${L.id}:${g}`, d = MT[k];
+  if (!d?.rows) { if (!d?.busy && !d?.err) loadMT(L, g); return d?.err ? `<div class="mut" style="text-align:center;padding:14px;font-size:12.5px">${tt('تعذّر جلب المباريات', 'Could not load matches')}</div>` : `<div class="aiload" style="padding:14px"><i></i><i></i><i></i></div>`; }
+  const ev = ST.G.events.find((e) => e.id === g), live = isLiveGW(g), fin = !!ev?.fin, startedG = ev && new Date(ev.deadline) < new Date();
+  const meE = ST.profile.teamId;
+  const pts = (e, raw) => { if (g === S.gw && live) { const m = S.members?.find((x) => x.entry === e); if (m?.calc) return m.calc.total; } return raw ?? 0; };
+  if (!d.rows.length) return `<div class="mut" style="text-align:center;padding:14px;font-size:12.5px">${tt('ماكو مباريات بهاي الجولة', 'No matches this GW')}</div>`;
+  const nameBtn = (e, nm, mg, side) => e ? `<button class="mt-t ${side}" onclick="rvOpenGW(${e},${g})"${!startedG ? ' disabled' : ''}><b>${esc(nm)}</b><small>${esc(mg || '')}</small></button>` : `<div class="mt-t ${side} bye"><b>${tt('راحة', 'BYE')}</b></div>`;
+  const rows = d.rows.map((r) => {
+    const a = r.entry_1_entry, b = r.entry_2_entry, mine = a === meE || b === meE;
+    const pa = pts(a, r.entry_1_points), pb = pts(b, r.entry_2_points);
+    const w = startedG && (fin || live || pa || pb) ? (pa > pb ? 1 : pb > pa ? 2 : 0) : -1;
+    const mid = !startedG ? `<div class="mt-sc pend">${tt('لم تبدأ', 'TBD')}</div>` : `<div class="mt-sc${live ? ' live' : ''}"><span class="${w === 1 ? 'w' : ''}">${pa}</span><i>-</i><span class="${w === 2 ? 'w' : ''}">${pb}</span></div>`;
+    return `<div class="mt-row${mine ? ' me' : ''}${w === 1 ? ' w1' : w === 2 ? ' w2' : ''}">${nameBtn(a, r.entry_1_name, r.entry_1_player_name, 'r')}${mid}${nameBtn(b, r.entry_2_name, r.entry_2_player_name, 'l')}</div>`;
+  }).join('');
+  const note = live ? `<div class="mt-note">${I('i-live', 'i', 'width:12px;height:12px')} ${tt('نقاط مباشرة — تتحدّث تلقائياً', 'Live points')}</div>` : !startedG ? `<div class="mt-note">${tt('القرعة فقط — التشكيلات تنكشف بعد الديدلاين', 'Pairings only')}</div>` : '';
+  return note + rows;
+}
+const mtScroll = () => { const c = document.getElementById('rvMTgw'), b = c?.querySelector('button.on'); if (c && b) c.scrollLeft = b.offsetLeft - c.clientWidth / 2 + b.offsetWidth / 2; };
+function matchesBlock() {
+  const last = Math.max(...ST.G.events.map((e) => e.id));
+  if (!mtGW || mtGW > last) mtGW = S.gw || ST.G.cur || 1;
+  const chips = ST.G.events.map((e) => `<button class="${e.id === mtGW ? 'on' : ''}${e.id === S.gw ? ' cur' : ''}" onclick="rvMT(${e.id})">${e.id}</button>`).join('');
+  setTimeout(mtScroll, 0);
+  return `<div class="sec"><h2>${I('i-swords')}${tt('مباريات الدوري', 'League fixtures')}</h2><small class="mut">${tt('اضغط على أي اسم لتشكيلته', 'Tap a name for lineup')}</small></div>
+   <div class="card mt-card"><div class="mt-gws" id="rvMTgw">${chips}</div><div id="rvMT">${matchesInner()}</div></div>`;
 }
 
 export function vRivals() {
@@ -175,33 +221,39 @@ export function vRivals() {
   const thr = started && T.n ? `<div class="grid g2" style="margin-top:10px"><div class="card"><b style="font-size:13.5px;color:var(--bad)">${I('i-alert', 'i', 'width:15px;height:15px;vertical-align:-3px')} ${tt('خطر عليك', 'Threats')}</b><div class="mut" style="font-size:11px;margin-bottom:6px">${tt('عند منافسينك وانت ما عندك', 'Owned by rivals, not you')}</div>${T.th.map((x) => `<div class="rv-own" onclick="openPlayer(${x.id})"><span>${esc(PM(x.id)?.name || '')}${x.cap ? ` ${I('i-crown', 'i', 'width:11px;height:11px;color:var(--gold)')}${x.cap}` : ''}</span><b class="num">${x.pct}%</b><small class="num">${lpts(x.id)}${tt('ن', 'p')}</small></div>`).join('') || '<p class="mut">—</p>'}</div>
      <div class="card"><b style="font-size:13.5px;color:var(--acc)">${I('i-sparkle', 'i', 'width:15px;height:15px;vertical-align:-3px')} ${tt('فرصتك', 'Your edge')}</b><div class="mut" style="font-size:11px;margin-bottom:6px">${tt('عندك وقليل منهم عنده', 'Yours, rarely owned')}</div>${T.op.map((x) => `<div class="rv-own" onclick="openPlayer(${x.id})"><span>${esc(PM(x.id)?.name || '')}</span><b class="num">${x.pct}%</b><small class="num">${lpts(x.id)}${tt('ن', 'p')}</small></div>`).join('') || '<p class="mut">—</p>'}</div></div>` : '';
   const list = [...S.members].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-  return picker + `<div style="margin-top:12px">${top}</div>${standings()}${thr}
+  return picker + `<div style="margin-top:12px">${top}</div>${standings()}${sel.kind === 'h' ? matchesBlock() : ''}${thr}
    <div class="sec"><h2>${I('i-users')}${tt(`منافسينك بالجولة ${S.gw}`, `Rivals in GW${S.gw}`)}</h2><button class="icon-btn" onclick="rvReload(this)" aria-label="refresh">${I('i-refresh')}</button></div>
    ${!started ? `<div class="note">${I('i-info', 'i', 'color:var(--info)')}<span>${tt('تشكيلات وانتقالات الجولة الجاية تنكشف بعد الإغلاق — هسة تشوف تشكيلاتهم بالجولة الحالية.', 'Next GW picks appear after the deadline.')}</span></div>` : ''}
    <div class="rv-list">${list.map((m, i) => rivalCard(m, me, i)).join('')}</div>
    <p class="mut" style="font-size:11px;text-align:center;margin-top:10px">${sel.kind === 'c' ? tt('يعرض أول 10 بالدوري واللي حواليك. اضغط على أي فريق حتى تشوف تشكيلته كاملة والفروقات.', 'Shows top 10 and those around you. Tap a team for full lineup.') : tt('اضغط على أي فريق حتى تشوف تشكيلته كاملة والفروقات.', 'Tap a team for full lineup.')}</p>`;
 }
 
-async function lineupSheet(entry) {
-  let m = S.members?.find((x) => x.entry === entry) || S.extra?.[entry];
-  if (!m) {
-    const r = (S.table || []).find((x) => x.entry === entry); if (!r) return;
-    openSheet(`${sheetHead(I('i-users'), esc(r.entry_name))}<div class="aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>`);
-    m = { entry, name: r.entry_name, mgr: r.player_name, rank: r.rank, total: r.total };
-    try { m.picks = await FPL.fetchPicks(entry, S.gw); recalc(m); } catch { m.picks = null; }
-    try { const tr = await FPL.fetchTransfers(entry); m.tr = (Array.isArray(tr) ? tr : []).filter((x) => x.event === S.gw); } catch { m.tr = []; }
-    (S.extra = S.extra || {})[entry] = m;
+async function lineupSheet(entry, gw = S.gw) {
+  const meE = ST.profile.teamId;
+  const need = (e) => !entryFor(e, gw);
+  if (need(entry) || (entry !== meE && need(meE))) {
+    const r = (S.table || []).find((x) => x.entry === entry);
+    openSheet(`${sheetHead(I('i-users'), esc(r?.entry_name || ''))}<div class="aiload"><i></i><i></i><i></i><span>${t('loading')}</span></div>`);
+    const L = await liveFor(gw).catch(() => null);
+    const load = async (e) => {
+      const rr = (S.table || []).find((x) => x.entry === e) || {};
+      const m = { entry: e, name: rr.entry_name || (e === meE ? ST.E.entry.name : '#' + e), mgr: rr.player_name, rank: rr.rank, total: rr.total };
+      try { m.picks = await FPL.fetchPicks(e, gw); m.calc = liveCalc(m.picks, gw, undefined, L); } catch { m.picks = null; }
+      try { const tr = await FPL.fetchTransfers(e); m.tr = (Array.isArray(tr) ? tr : []).filter((x) => x.event === gw); } catch { m.tr = []; }
+      if (gw === S.gw) (S.extra = S.extra || {})[e] = m; else (XG[gw] = XG[gw] || {})[e] = m;
+    };
+    await Promise.all([entry, meE].filter((e, k, a) => a.indexOf(e) === k && need(e)).map(load));
   }
-  openEntry = entry;
-  openSheet(`<div id="rvSheet">${sheetBody(entry)}</div>`);
-  // نجيب أحدث نقاط فوراً بدل ما ننتظر الدورة الجاية
-  if (isLiveGW(S.gw)) ensureLive(S.gw, true).then(() => { S.members.forEach(recalc); Object.values(S.extra || {}).forEach(recalc); const el = document.getElementById('rvSheet'); if (el && openEntry === entry) el.innerHTML = sheetBody(entry); }).catch(() => {});
+  openEntry = entry; openGW = gw;
+  openSheet(`<div id="rvSheet">${sheetBody(entry, gw)}</div>`);
+  if (isLiveGW(gw)) liveFor(gw, true).then(() => { [entry, meE].forEach((e) => recalcGW(entryFor(e, gw), gw)); if (gw === S.gw) S.members.forEach(recalc); const el = document.getElementById('rvSheet'); if (el && openEntry === entry) el.innerHTML = sheetBody(entry, gw); }).catch(() => {});
 }
-function sheetBody(entry) {
-  const m = S.members?.find((x) => x.entry === entry) || S.extra?.[entry]; if (!m) return '';
-  const meE = ST.profile.teamId, me = S.members.find((x) => x.entry === meE), isMe = entry === meE;
+const recalcGW = (m, gw) => { if (m?.picks) m.calc = liveCalc(m.picks, gw, undefined, liveMap(gw)); };
+function sheetBody(entry, gw = gw) {
+  const m = entryFor(entry, gw); if (!m) return '';
+  const meE = ST.profile.teamId, me = entryFor(meE, gw), isMe = entry === meE;
   const init = (m.name || '?').trim().slice(0, 1).toUpperCase();
-  const head = `<div class="rvs-head"><div class="rvs-av">${esc(init)}</div><div style="flex:1;min-width:0"><b class="rvs-name">${esc(m.name)}</b><div class="mut" style="font-size:12.5px">${esc(m.mgr || '')}${m.rank ? ` · #${m.rank}` : ''} · ${tt('الجولة', 'GW')} ${S.gw}</div></div>${isLiveGW(S.gw) ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}<button class="icon-btn" onclick="closeSheet()" aria-label="close">${I('i-x')}</button></div>`;
+  const head = `<div class="rvs-head"><div class="rvs-av">${esc(init)}</div><div style="flex:1;min-width:0"><b class="rvs-name">${esc(m.name)}</b><div class="mut" style="font-size:12.5px">${esc(m.mgr || '')}${m.rank ? ` · #${m.rank}` : ''} · ${tt('الجولة', 'GW')} ${gw}</div></div>${isLiveGW(gw) ? `<span class="livebadge">${tt('مباشر', 'Live')}</span>` : ''}<button class="icon-btn" onclick="closeSheet()" aria-label="close">${I('i-x')}</button></div>`;
   if (!m.picks) return head + `<div class="note">${I('i-info')}<span>${tt('التشكيلة تنكشف بعد الإغلاق', 'Lineup hidden until deadline')}</span></div>`;
   const rows = m.calc?.rows || [], R = (id) => rows.find((r) => r.id === id);
   const ps = [...m.picks.picks].sort((a, b) => a.position - b.position), mine = new Set((me?.picks?.picks || []).map((p) => p.element));
@@ -213,10 +265,10 @@ function sheetBody(entry) {
   const trs = m.tr?.length ? `<div class="rvs-trs">${m.tr.map((x) => `<span class="rvs-tr"><b>${esc(PM(x.element_in)?.name || '?')}</b>${I('i-back', 'i', 'width:12px;height:12px')}<s>${esc(PM(x.element_out)?.name || '?')}</s></span>`).join('')}</div>` : '';
   const card = (p, bench) => {
     const q = PM(p.element); if (!q) return '';
-    const r = R(p.element), mult = r ? r.m : p.multiplier, raw = r?.pts ?? lpts(p.element), pts = mult > 0 ? raw * mult : raw;
+    const r = R(p.element), mult = r ? r.m : p.multiplier, raw = r?.pts ?? lpts(p.element, gw), pts = mult > 0 ? raw * mult : raw;
     const diff = !isMe && !mine.has(p.element), counted = mult > 0;
-    const playing = (ST.G.fx[S.gw] || []).some((f) => (f.h === q.team || f.a === q.team) && f.started && !f.fin);
-    return `<button class="rvp-pl ${diff ? 'diff' : ''} ${r?.subOut ? 'out' : ''} ${bench && !counted ? 'benched' : ''}" onclick="closeSheet();setTimeout(()=>playerGW(${q.id},${S.gw},${Math.max(1, mult)}),200)">
+    const playing = (ST.G.fx[gw] || []).some((f) => (f.h === q.team || f.a === q.team) && f.started && !f.fin);
+    return `<button class="rvp-pl ${diff ? 'diff' : ''} ${r?.subOut ? 'out' : ''} ${bench && !counted ? 'benched' : ''}" onclick="closeSheet();setTimeout(()=>playerGW(${q.id},${gw},${Math.max(1, mult)}),200)">
       <div class="rvp-sh">${pShirt(q)}${p.is_captain ? `<i class="rvp-b c">${mult === 3 ? '3×' : 'C'}</i>` : p.is_vice_captain ? '<i class="rvp-b v">V</i>' : ''}${r?.subIn ? '<i class="rvp-b in">↑</i>' : r?.subOut ? '<i class="rvp-b outb">↓</i>' : ''}${diff ? '<i class="rvp-dot"></i>' : ''}</div>
       <span class="rvp-nm">${esc(q.name)}</span><span class="rvp-pt ${p.is_captain && counted ? 'cap' : ''} ${playing ? 'live' : ''} ${!counted ? 'muted' : ''}">${pts}</span></button>`;
   };
@@ -227,16 +279,18 @@ function sheetBody(entry) {
     ${!isMe ? `<div class="rvp-legend"><span><i class="rvp-dot" style="position:static"></i>${tt('مو موجود بفريقك', 'Not in your team')}</span><span><i class="lg-live"></i>${tt('يلعب هسة', 'Playing now')}</span></div>` : ''}`;
   let dif = '';
   if (!isMe) {
-    const D = diffs(me, m), sum = (L) => L.reduce((a, x) => a + lpts(x.id) * x.d, 0);
-    const li = (x, cls) => { const q = PM(x.id); return q ? `<div class="rv-own" onclick="closeSheet();setTimeout(()=>openPlayer(${q.id}),200)"><span class="mini-sh" style="width:22px;height:22px">${pShirt(q)}</span><span>${esc(q.name)}${x.d > 1 ? ` <small class="mut">×${x.d}</small>` : ''}</span><b class="num ${cls}">${lpts(x.id) * x.d}</b></div>` : ''; };
+    const D = diffs(me, m, gw), sum = (L) => L.reduce((a, x) => a + lpts(x.id, gw) * x.d, 0);
+    const li = (x, cls) => { const q = PM(x.id); return q ? `<div class="rv-own" onclick="closeSheet();setTimeout(()=>openPlayer(${q.id}),200)"><span class="mini-sh" style="width:22px;height:22px">${pShirt(q)}</span><span>${esc(q.name)}${x.d > 1 ? ` <small class="mut">×${x.d}</small>` : ''}</span><b class="num ${cls}">${lpts(x.id, gw) * x.d}</b></div>` : ''; };
     dif = `<div class="rvs-dif"><div class="card"><div class="flex between"><b style="font-size:13px">${tt('عنده وما عندك', 'Only them')}</b><b class="num down">${sum(D.theirs)}</b></div>${D.theirs.map((x) => li(x, 'down')).join('') || '<p class="mut" style="font-size:12px">—</p>'}</div>
       <div class="card"><div class="flex between"><b style="font-size:13px">${tt('عندك وما عنده', 'Only you')}</b><b class="num up">${sum(D.mine)}</b></div>${D.mine.map((x) => li(x, 'up')).join('') || '<p class="mut" style="font-size:12px">—</p>'}</div></div>`;
   }
-  return head + stats + trs + pitch + dif + `<p class="mut" style="font-size:11px;text-align:center;margin-top:8px">${isLiveGW(S.gw) ? tt('النقاط تتحدث تلقائياً كل 30 ثانية', 'Points auto-update every 30s') : ''}</p>`;
+  return head + stats + trs + pitch + dif + `<p class="mut" style="font-size:11px;text-align:center;margin-top:8px">${isLiveGW(gw) ? tt('النقاط تتحدث تلقائياً كل 30 ثانية', 'Points auto-update every 30s') : ''}</p>`;
 }
 Object.assign(window, {
-  rvSel: (id, kind) => { sel = leagues().find((l) => l.id === id && l.kind === kind) || sel; S = {}; window.render(); },
+  rvSel: (id, kind) => { sel = leagues().find((l) => l.id === id && l.kind === kind) || sel; S = {}; mtGW = null; window.render(); },
   rvReload: (b) => { b?.classList.add('spin'); S = {}; window.render(); },
   rvOpen: (e) => lineupSheet(e),
+  rvOpenGW: (e, g) => lineupSheet(e, g),
+  rvMT: (g) => { mtGW = g; const c = document.getElementById('rvMTgw'); if (c) c.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.textContent === g)); const el = document.getElementById('rvMT'); if (el) el.innerHTML = matchesInner(); mtScroll(); },
   rvAll: () => { showAll = !showAll; window.render(); },
 });
