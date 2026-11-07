@@ -1,8 +1,0 @@
-name: probe
-on: workflow_dispatch
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          curl -s https://fantasy.premierleague.com/api/bootstrap-static/ -A "Mozilla/5.0" | python3 -c "import sys,json;d=json.load(sys.stdin);e=sorted(d['elements'],key=lambda x:-abs(float(x.get('price_change_percent') or 0)))[:3];[print(x['web_name'],{k:x.get(k) for k in ['price_change_percent','price_change_hourly_rate','price_change_projections','price_change_locked_until','price_change_calibrating']}) for x in e]"
