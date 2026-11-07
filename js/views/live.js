@@ -221,7 +221,7 @@ function mapFPL(players, team) {
   return out;
 }
 const DEPTH = (pos) => { const p = pos.toUpperCase(); if (p === 'G' || p === 'GK') return 0; if (/^(CD|D|SW|LB|RB|CB)/.test(p)) return 1; if (/^(LWB|RWB|DM|CDM)/.test(p)) return 2; if (/^(CM|LM|RM|M)(-|$)/.test(p)) return 3; if (/^(AM|CF-|LW|RW|CAM)/.test(p)) return 4; return 5; };
-const SIDE = (pos) => { const p = pos.toUpperCase(); return /-L$|^L/.test(p) ? 0 : /-R$|^R/.test(p) ? 2 : 1; };
+const SIDE = (pos) => { const p = pos.toUpperCase(); if (/^(LB|LM|LW|LWB|LF)$/.test(p)) return 0; if (/^(RB|RM|RW|RWB|RF)$/.test(p)) return 4; if (/-L$/.test(p)) return 1; if (/-R$/.test(p)) return 3; return 2; };
 function lineupBoxESPN(f, ev, L, d) {
   const sd = d.sides[mcSide]; const team = mcSide === 'h' ? f.h : f.a;
   const tabs = `<div class="mc-tabs"><button class="${mcSide === 'h' ? 'on' : ''}" onclick="mcSideSet('h',${f.id},${ev})">${tName(f.h)}</button><button class="${mcSide === 'a' ? 'on' : ''}" onclick="mcSideSet('a',${f.id},${ev})">${tName(f.a)}</button></div>`;
