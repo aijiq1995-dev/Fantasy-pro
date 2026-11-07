@@ -1,20 +1,10 @@
 name: probe
-on: { push: { paths: ['.github/workflows/probe.yml'] } }
+on: { push: { paths: ['.github/workflows/probe.yml', 'dev/lu-test.mjs'] } }
 jobs:
   p:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          python3 - <<'PY'
-          import json,urllib.request
-          g=lambda u: json.load(urllib.request.urlopen(u))
-          t=g("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams")
-          print([(x['team']['abbreviation'],x['team']['displayName'],x['team']['shortDisplayName']) for x in t['sports'][0]['leagues'][0]['teams']])
-          s=g("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/summary?event=401878758")
-          for k in s.get('keyEvents',[]):
-            if 'ubstit' in k.get('type',{}).get('text',''): print('KE',json.dumps({a:k.get(a) for a in ['type','clock','text','shortText','team','participants']})[:600])
-          c=[x for x in s.get('commentary',[]) if 'ubstitution' in x.get('text','')][:3]
-          print('COM',json.dumps(c)[:800])
-          sb=g("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=20261107")
-          e=sb['events'][0]; print(json.dumps({'date':e['date'],'comp':[(c['team']['abbreviation'],c['homeAway']) for c in e['competitions'][0]['competitors']]}))
-          PY
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node dev/lu-test.mjs

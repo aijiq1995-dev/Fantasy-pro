@@ -117,7 +117,7 @@ window.wiSet = (id) => { wiP = id; window.openWhatIf(); };
    لوحة النتيجة بألوان الفريقين · أحداث المباراة لكل فريق بأيقونات
    · البونص ونقاط BPS · المساهمات الدفاعية · ترتيب نقاط الفانتازي بالمباراة · لاعبينك
 ========================================================= */
-const mcLive = {};
+const mcLive = {}; let mcTimer = 0;
 const DCT = (id) => ({ DEF: 10, MID: 12, FWD: 12 })[PM(id)?.pos] || 99;
 const nmOf = (id) => esc(PM(id)?.name || '#' + id);
 function mcBody(f, ev) {
@@ -162,7 +162,7 @@ function mcBody(f, ev) {
     if (rows.length) fpBox = `<div class="mc-sec"><h4>${I('i-chart', 'i', 'width:15px;height:15px')}${tt('أعلى نقاط فانتازي بالمباراة', 'Top fantasy points')}</h4>
       ${rows.map((r, k) => `<button class="mc-fp" onclick="closeSheet();setTimeout(()=>playerGW(${r.p.id},${ev}),200)"><span class="mc-rk">${k + 1}</span><span class="mini-sh">${pShirt(r.p)}</span><span class="mc-fpn"><b>${esc(r.p.name)}</b><small>${tShort(r.p.team)} · ${r.min}′</small></span><span class="mc-bar"><i style="width:${(Math.max(0, r.pts) / mx) * 100}%"></i></span><b class="num mc-pts">${r.pts}</b></button>`).join('')}</div>`;
   }
-  return board + events + bonusBox + dcBox + fpBox + (L && f.started ? lineupBox(f, ev, L) : '') + mineBlock(f, ev);
+  return board + events + bonusBox + dcBox + fpBox + ((L && f.started) || LU[f.id]?.d ? lineupBox(f, ev, L) : '') + mineBlock(f, ev);
 }
 
 /* ---------- تشكيلة الفريقين بالمباراة (من دقائق اللعب والـ starts بالفانتازي) ---------- */
@@ -192,7 +192,71 @@ function matchLineup(f, L, team) {
   const leftover = sb.filter((x) => ![...pair.values()].includes(x));
   return { st, pair, leftover, approx, offs: st.filter((x) => pair.has(x.p.id)) };
 }
+
+/* ---------- التشكيلة الرسمية والتبديلات الحقيقية (من /api/lineups) ---------- */
+const LU = {};
+const nrm = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ø/g, 'o').replace(/ß/g, 'ss').toLowerCase().replace(/[^a-z]/g, '');
+const lastTok = (x) => nrm(String(x || '').trim().split(/\s+/).pop());
+function loadLU(f, ev, force = false) {
+  const c = LU[f.id]; if (c?.busy) return; if (!force && c && (c.d === null || !(f.started && !f.fin) || Date.now() - c.at < 55e3)) return;
+  LU[f.id] = { ...(c || {}), busy: true };
+  fetch(`/api/lineups?ko=${encodeURIComponent(f.ko)}&h=${tShort(f.h)}&a=${tShort(f.a)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
+    LU[f.id] = { d: d?.sides && Object.keys(d.sides).length ? d : c?.d || null, at: Date.now() };
+    const el = document.getElementById('mcBody'); if (el && el.dataset.fid == f.id) el.innerHTML = mcBody(f, ev);
+  });
+}
+/** ربط لاعبي ESPN بلاعبي الفانتازي بالاسم */
+function mapFPL(players, team) {
+  const pool = ST.G.players.filter((p) => p.team === team), used = new Set(), out = {};
+  const tests = [
+    (e, p) => nrm(p.full) === nrm(e.name),
+    (e, p) => nrm(p.name) === nrm(e.name) || nrm(p.name) === nrm(e.last) || nrm(p.name) === nrm(e.short),
+    (e, p) => lastTok(p.full) === lastTok(e.name) && nrm(p.full)[0] === nrm(e.name)[0],
+    (e, p) => nrm(e.name).endsWith(nrm(p.name)) && nrm(p.name).length >= 4,
+    (e, p) => lastTok(p.full) === lastTok(e.name),
+    (e, p) => nrm(e.name).includes(nrm(p.name)) && nrm(p.name).length >= 4,
+  ];
+  tests.forEach((t) => players.forEach((e) => { if (out[e.id]) return; const m = pool.filter((p) => !used.has(p.id) && t(e, p)); if (m.length === 1) { out[e.id] = m[0]; used.add(m[0].id); } }));
+  return out;
+}
+const DEPTH = (pos) => { const p = pos.toUpperCase(); if (p === 'G' || p === 'GK') return 0; if (/^(CD|D|SW|LB|RB|CB)/.test(p)) return 1; if (/^(LWB|RWB|DM|CDM)/.test(p)) return 2; if (/^(CM|LM|RM|M)(-|$)/.test(p)) return 3; if (/^(AM|CF-|LW|RW|CAM)/.test(p)) return 4; return 5; };
+const SIDE = (pos) => { const p = pos.toUpperCase(); return /-L$|^L/.test(p) ? 0 : /-R$|^R/.test(p) ? 2 : 1; };
+function lineupBoxESPN(f, ev, L, d) {
+  const sd = d.sides[mcSide]; const team = mcSide === 'h' ? f.h : f.a;
+  const tabs = `<div class="mc-tabs"><button class="${mcSide === 'h' ? 'on' : ''}" onclick="mcSideSet('h',${f.id},${ev})">${tName(f.h)}</button><button class="${mcSide === 'a' ? 'on' : ''}" onclick="mcSideSet('a',${f.id},${ev})">${tName(f.a)}</button></div>`;
+  if (!sd?.players?.length) return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة', 'Lineups')}</h4>${tabs}<p class="mc-none">${tt('التشكيلة ما انعلنت بعد', 'Lineup not announced yet')}</p></div>`;
+  const live = f.started && !f.fin, M = mapFPL(sd.players, team), byId = Object.fromEntries(sd.players.map((p) => [p.id, p]));
+  const subs = (d.subs || []).filter((x) => byId[x.in] || byId[x.out]);
+  const ptsOf = (e) => { const p = M[e.id]; const s = p && L?.[p.id]; return s ? s.total_points : f.started ? 0 : null; };
+  const nameOf = (e) => M[e.id]?.name || e.last || e.name;
+  const card = (e, kind, at) => { const p = M[e.id], pts = ptsOf(e), onPitch = kind !== 'out' && kind !== 'unused';
+    const mins = p && L?.[p.id] ? L[p.id].minutes : null;
+    const lab = kind === 'in' ? `${at?.txt || ''}↑` : kind === 'out' ? `${at?.txt || ''}↓` : kind === 'unused' ? tt('ما لعب', 'unused') : mins != null && f.started ? `${mins}′` : '';
+    return `<button class="rvp-pl ${onPitch ? '' : 'out'}" ${p ? `onclick="closeSheet();setTimeout(()=>playerGW(${p.id},${ev}),200)"` : ''}>
+      <div class="rvp-sh">${p ? pShirt(p) : pShirt({ team, pos: e.pos === 'G' ? 'GK' : 'MID' })}${kind === 'in' ? '<i class="rvp-b in">↑</i>' : kind === 'out' ? '<i class="rvp-b outb">↓</i>' : ''}${e.yc && !e.rc ? '<i class="mc-yc"></i>' : ''}${e.rc ? '<i class="mc-yc r"></i>' : ''}</div>
+      <span class="rvp-nm">${esc(nameOf(e))}</span><span class="rvp-pt ${live && onPitch ? 'live' : ''}">${pts ?? '—'}</span>${lab ? `<small class="mc-min">${lab}</small>` : ''}</button>`; };
+  // كل أساسي: إذا تبدّل نحط مكانه اللاعب اللي دخل (ونتبع سلسلة التبديلات)
+  const starters = sd.players.filter((p) => p.starter);
+  const slots = starters.map((e) => { let cur = e, at = null, k = ''; let sx; const seen = new Set(); while ((sx = subs.find((x) => x.out === cur.id)) && byId[sx.in] && !seen.has(sx.in)) { seen.add(sx.in); cur = byId[sx.in]; at = sx.at; k = 'in'; } return { e, cur, at, k }; });
+  const ordered = [...slots].sort((a, b) => DEPTH(a.e.pos) - DEPTH(b.e.pos));
+  const nums = (sd.formation || '').split('-').map(Number).filter((n) => n > 0);
+  let lines = [];
+  if (nums.length && nums.reduce((a, b) => a + b, 0) === ordered.length - 1) { let i = 1; lines.push(ordered.slice(0, 1)); nums.forEach((n) => { lines.push(ordered.slice(i, i + n)); i += n; }); }
+  else { const g = {}; ordered.forEach((z) => (g[DEPTH(z.e.pos)] = g[DEPTH(z.e.pos)] || []).push(z)); lines = Object.keys(g).sort((a, b) => a - b).map((k) => g[k]); }
+  lines = lines.map((l) => [...l].sort((a, b) => SIDE(b.e.pos) - SIDE(a.e.pos)));
+  const offIds = new Set(subs.map((x) => x.out)), onIds = new Set(subs.map((x) => x.in));
+  const offs = sd.players.filter((p) => offIds.has(p.id) && byId[p.id]).map((p) => card(p, 'out', subs.find((x) => x.out === p.id)?.at));
+  const unused = sd.players.filter((p) => !p.starter && !onIds.has(p.id)).map((p) => card(p, 'unused'));
+  const teamPts = f.started ? sd.players.reduce((a, e) => a + (ptsOf(e) || 0), 0) : null;
+  return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة والنقاط', 'Lineups & points')}${live ? `<small>${tt('مباشر', 'live')}</small>` : ''}</h4>${tabs}
+    <div class="mc-lu-sum"><span>${sd.formation ? `${tt('الخطة', 'Formation')} <b dir="ltr" style="color:var(--txt);font-size:13px">${esc(sd.formation)}</b>` : ''}</span>${teamPts != null ? `<span>${tt('مجموع النقاط', 'Team points')} <b class="num">${teamPts}</b></span>` : ''}</div>
+    <div class="rvp mc-pitch"><div class="rvp-lines"><i class="box t"></i><i class="six t"></i><i class="mid"></i><i class="circle"></i><i class="box b"></i><i class="six b"></i></div>${lines.map((l) => `<div class="rvp-row" style="direction:ltr">${l.map((z) => card(z.cur, z.k, z.at)).join('')}</div>`).join('')}</div>
+    ${offs.length ? `<div class="rvp-bench"><span class="rvp-bl">${tt('طلعوا من الملعب', 'Substituted off')}</span><div class="rvp-row" style="flex-wrap:wrap">${offs.join('')}</div></div>` : ''}
+    ${unused.length ? `<div class="rvp-bench"><span class="rvp-bl">${tt('الدكة (ما لعبوا)', 'Unused subs')}</span><div class="rvp-row" style="flex-wrap:wrap">${unused.join('')}</div></div>` : ''}
+    <div class="rvp-legend"><span><i class="rvp-b in" style="position:static">↑</i>${tt('دخل', 'On')}</span><span><i class="rvp-b outb" style="position:static">↓</i>${tt('طلع', 'Off')}</span></div></div>`;
+}
 function lineupBox(f, ev, L) {
+  const luD = LU[f.id]?.d; if (luD) return lineupBoxESPN(f, ev, L, luD);
   const team = mcSide === 'h' ? f.h : f.a, lu = matchLineup(f, L, team);
   const tabs = `<div class="mc-tabs"><button class="${mcSide === 'h' ? 'on' : ''}" onclick="mcSideSet('h',${f.id},${ev})">${tName(f.h)}</button><button class="${mcSide === 'a' ? 'on' : ''}" onclick="mcSideSet('a',${f.id},${ev})">${tName(f.a)}</button></div>`;
   if (!lu) return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة', 'Lineups')}</h4>${tabs}<p class="mc-none">${tt('التشكيلة تظهر أول ما تبدي المباراة', 'Lineups appear at kick-off')}</p></div>`;
@@ -222,9 +286,11 @@ async function openMatchC(fid, ev) {
   mcSide = 'h';
   const f = (ST.G.fx[ev] || []).find((x) => x.id === fid); if (!f) return;
   if (ev === ST.G.cur && ST.live && ST.liveRawGW === ev) mcLive[ev] = ST.live;
-  openSheet(`<div class="mc-head"><span>${t('gw')} ${ev} · ${fmtTime(f.ko)}</span><button class="icon-btn" onclick="closeSheet()" aria-label="close">${I('i-x')}</button></div><div id="mcBody">${mcBody(f, ev)}</div>`);
+  openSheet(`<div class="mc-head"><span>${t('gw')} ${ev} · ${fmtTime(f.ko)}</span><button class="icon-btn" onclick="closeSheet()" aria-label="close">${I('i-x')}</button></div><div id="mcBody" data-fid="${f.id}">${mcBody(f, ev)}</div>`);
+  if (f.started || (f.ko && new Date(f.ko) - Date.now() < 90 * 60e3)) loadLU(f, ev);
+  clearInterval(mcTimer); mcTimer = setInterval(async () => { const el = document.getElementById('mcBody'); if (!el || el.dataset.fid != f.id) return clearInterval(mcTimer); const ff = (ST.G.fx[ev] || []).find((x) => x.id === fid) || f; if (!(ff.started && !ff.fin) || document.hidden) return; try { const l = await FPL.loadLive(ev, true); mcLive[ev] = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); } catch {} loadLU(ff, ev, true); const e2 = document.getElementById('mcBody'); if (e2 && e2.dataset.fid == f.id) e2.innerHTML = mcBody(ff, ev); }, 60e3);
   if (f.started && (!mcLive[ev] || ev === ST.G.cur)) {
-    try { const l = await FPL.loadLive(ev); mcLive[ev] = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); const el = document.getElementById('mcBody'); if (el) el.innerHTML = mcBody(f, ev); } catch {}
+    try { const l = await FPL.loadLive(ev); mcLive[ev] = Object.fromEntries(l.elements.map((x) => [x.id, x.stats])); const el = document.getElementById('mcBody'); if (el && el.dataset.fid == f.id) el.innerHTML = mcBody(f, ev); } catch {}
   }
 }
 Object.assign(window, { mcSideSet: (sd, fid, ev) => { mcSide = sd; const f = (ST.G.fx[ev] || []).find((x) => x.id === fid), el = document.getElementById('mcBody'); if (f && el) el.innerHTML = mcBody(f, ev); }, lvGW: (g) => { gwSel = g; window.render(); setTimeout(() => document.querySelector('#lvseg .on')?.scrollIntoView({ inline: 'center', block: 'nearest' }), 30); }, lvRefresh: () => refreshLive(true), openMatchC });

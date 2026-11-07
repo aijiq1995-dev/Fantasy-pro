@@ -12,6 +12,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const fpl = (await import('../api/fpl.js')).default;
 const coach = (await import('../api/coach.js')).default;
 const captains = (await import('../api/captains.js')).default;
+const lineups = (await import('../api/lineups.js')).default;
 const account = (await import('../api/account.js')).default;
 const pushApi = (await import('../api/push.js')).default;
 const newsApi = (await import('../api/news.js')).default;
@@ -21,6 +22,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/api/fpl') return fpl(req, res);
   if (u.pathname === '/api/coach') return coach(req, res);
   if (u.pathname === '/api/captains') return captains(req, res);
+  if (u.pathname === '/api/lineups') return lineups(req, res);
   if (u.pathname === '/api/account') return account(req, res);
   if (u.pathname === '/api/push') return pushApi(req, res);
   if (u.pathname === '/api/news') return newsApi(req, res);
