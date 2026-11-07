@@ -198,7 +198,8 @@ const LU = {};
 const nrm = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ø/g, 'o').replace(/ß/g, 'ss').toLowerCase().replace(/[^a-z]/g, '');
 const lastTok = (x) => nrm(String(x || '').trim().split(/\s+/).pop());
 function loadLU(f, ev, force = false) {
-  const c = LU[f.id]; if (c?.busy) return; if (!force && c && (c.d === null || !(f.started && !f.fin) || Date.now() - c.at < 55e3)) return;
+  const c = LU[f.id]; if (c?.busy) return; const empty = !c?.d || !Object.values(c.d.sides || {}).some((x) => x.players?.length);
+  if (!force && c && (Date.now() - c.at < 55e3 || (!empty && !(f.started && !f.fin)))) return;
   LU[f.id] = { ...(c || {}), busy: true };
   fetch(`/api/lineups?ko=${encodeURIComponent(f.ko)}&h=${tShort(f.h)}&a=${tShort(f.a)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
     LU[f.id] = { d: d?.sides && Object.keys(d.sides).length ? d : c?.d || null, at: Date.now() };
@@ -256,7 +257,9 @@ function lineupBoxESPN(f, ev, L, d) {
     <div class="rvp-legend"><span><i class="rvp-b in" style="position:static">↑</i>${tt('دخل', 'On')}</span><span><i class="rvp-b outb" style="position:static">↓</i>${tt('طلع', 'Off')}</span></div></div>`;
 }
 function lineupBox(f, ev, L) {
-  const luD = LU[f.id]?.d; if (luD) return lineupBoxESPN(f, ev, L, luD);
+  const luD = LU[f.id]?.d, has = luD?.sides?.[mcSide]?.players?.length;
+  if (luD && (has || !(L && f.started))) return lineupBoxESPN(f, ev, L, luD);
+  if (!L) return '';
   const team = mcSide === 'h' ? f.h : f.a, lu = matchLineup(f, L, team);
   const tabs = `<div class="mc-tabs"><button class="${mcSide === 'h' ? 'on' : ''}" onclick="mcSideSet('h',${f.id},${ev})">${tName(f.h)}</button><button class="${mcSide === 'a' ? 'on' : ''}" onclick="mcSideSet('a',${f.id},${ev})">${tName(f.a)}</button></div>`;
   if (!lu) return `<div class="mc-sec"><h4>${I('i-pitch', 'i', 'width:15px;height:15px')}${tt('التشكيلة', 'Lineups')}</h4>${tabs}<p class="mc-none">${tt('التشكيلة تظهر أول ما تبدي المباراة', 'Lineups appear at kick-off')}</p></div>`;

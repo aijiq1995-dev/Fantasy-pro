@@ -35,6 +35,6 @@ for (const f of fx) {
   let out; const res={setHeader(){},end(x){out=x}}; await handler({url:`/api/lineups?ko=${f.kickoff_time}&h=${h}&a=${a}`},res);
   const d=JSON.parse(out); if(!d.sides){console.log(h,a,'->',res.statusCode,d.error);continue;}
   for (const [sd,team] of [['h',f.team_h],['a',f.team_a]]) { const S=d.sides[sd]; if(!S) continue; const M=mapFPL(S.players,team); const un=S.players.filter(p=>!M[p.id]); tot+=S.players.length; miss+=un.length; console.log(h,a,sd,S.formation,'players',S.players.length,'unmatched:',un.map(p=>p.name).join(', ')); }
-  if (h==='LEE') console.log('SUBS',JSON.stringify(d.subs), JSON.stringify(d.sides.h.players.slice(0,3)));
+  if (h==='LEE') console.log('JSONLEE'+out);
 }
 console.log('TOTAL',tot,'MISS',miss);
