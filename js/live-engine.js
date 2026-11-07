@@ -65,7 +65,7 @@ export function liveCalc(picks, gw = ST.G.cur, bonusMap = null, liveMap = null) 
     const on = starters.includes(x);
     let m = on ? 1 : 0;
     if (on && x === cap && !capOut) m = capMult; if (on && x === vc && capOut) m = capMult;
-    const pts = ptsOf(x.element), bonus = (L[x.element]?.bonus ? 0 : pb[x.element] || 0);
+    const pts = ptsOf(x.element), bonus = L[x.element]?.bonus || pb[x.element] || 0; // للعرض: البونص كله (سواء الفانتازي ضافه للنقاط أو لسه بالمباراة)
     total += pts * m;
     return { id: x.element, pos: x.position, pts, m, bonus, min: minOf(x.element), subIn: !!x.subbedIn, subOut: !!x.subbedOut, cap: x === cap, vc: x === vc };
   });
