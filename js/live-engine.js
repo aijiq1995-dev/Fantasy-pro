@@ -1,12 +1,22 @@
 /* =========================================================
-   المحرك المباشر: بونص مؤقت من BPS، تبديلات تلقائية، الكابتن البديل،
+   المحرك المباشر: نقاط رسمية فقط، تبديلات تلقائية، الكابتن البديل،
    الملكية الفعلية (EO)، أسهم الترتيب، التهديدات، ومحاكي "ماذا لو"
 ========================================================= */
 import { ST, PM } from './store.js';
 import { validXI } from './engine.js';
 
 /* ---------- البونص المؤقت لكل مباراة ---------- */
+/* حسب طلب المستخدم: ما نتوقّع بونص — النقاط فقط من الفانتازي الرسمي (البونص ينضاف لما الفانتازي يأكده) */
 export function provisionalBonus(gw) {
+  // البونص اللي ينشره الفانتازي نفسه بالمباريات (stats → bonus) — بدون أي توقع من عدنا
+  const out = {};
+  (ST.G.fx[gw] || []).filter((f) => f.started).forEach((f) => {
+    const b = (f.stats || []).find((s) => s.identifier === 'bonus'); if (!b) return;
+    [...(b.h || []), ...(b.a || [])].forEach((x) => (out[x.element] = (out[x.element] || 0) + x.value));
+  });
+  return out;
+}
+export function estimatedBonus(gw) {
   const out = {}, raw = ST.liveRaw && ST.liveRawGW === gw ? ST.liveRaw : null; if (!raw) return out;
   const fx = ST.G.fx[gw] || [];
   fx.filter((f) => f.started).forEach((f) => {
