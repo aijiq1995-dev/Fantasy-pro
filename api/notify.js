@@ -126,7 +126,7 @@ export default async function handler(req, res) {
       if (next && on('deadline')) {
         const h = (new Date(next.deadline_time) - Date.now()) / 36e5;
         if (h > 0 && h <= 24) msgs.push({ k: `dl24_${next.id}`, title: `⏰ باقي أقل من يوم على إغلاق الجولة ${next.id}`, body: 'راجع تشكيلتك والكابتن والانتقالات قبل الإغلاق.', url: '/#check' });
-        if (h > 0 && h <= 2.5 && h > 1.25) msgs.push({ k: `dl2_${next.id}`, title: `🔎 افحص فريقك قبل الإغلاق (الجولة ${next.id})`, body: 'باقي ساعتين — افتح «فحص قبل الإغلاق» وصلّح أي مصاب أو كابتن مشكوك.', url: '/#check' });
+        if (h > 0 && h <= 2.5 && h > 1.25) msgs.push({ k: `dl2_${next.id}`, title: `🔎 افحص فريقك قبل الديدلاين (الجولة ${next.id})`, body: 'باقي ساعتين — افتح «افحص الفريق قبل الديدلاين» وصلّح أي مصاب أو كابتن مشكوك.', url: '/#check' });
         if (h > 0 && h <= 1.25) msgs.push({ k: `dl1_${next.id}`, title: `🚨 باقي ساعة على إغلاق الجولة ${next.id}!`, body: 'آخر فرصة تثبت الكابتن والانتقالات.', url: '/#check', urg: 'high' });
       }
       // الإصابات
