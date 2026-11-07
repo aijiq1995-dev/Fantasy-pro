@@ -1,7 +1,7 @@
 /* مركز المباريات والنقاط المباشرة */
 import { ST, PM, tName, tShort, officialRank } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML, KITS } from '../ui.js';
+import { esc, I, crest, fmtTime, openSheet, sheetHead, toast, fmt, scoreHTML, KITS, fxMin, isHT } from '../ui.js';
 import * as FPL from '../fpl.js';
 import { scanLive } from '../notify.js';
 import { pShirt } from './common.js';
@@ -74,7 +74,7 @@ export function vLive() {
    <p class="mut" style="font-size:11.5px;text-align:center;margin-top:10px">${tt('النتائج والنقاط والبونص من الفانتازي الرسمي مباشرة — بدون توقعات.', 'Scores, points and bonus straight from official FPL — no estimates.')}</p>`;
 }
 function fxCard(f, myTeams) {
-  const st = f.fin ? tt('انتهت', 'FT') : f.started ? `${f.min || ''}′` : f.ko ? new Date(f.ko).toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { hour: 'numeric', minute: '2-digit' }) : '—';
+  const st = f.fin ? tt('انتهت', 'FT') : f.started ? fxMin(f) : f.ko ? new Date(f.ko).toLocaleTimeString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { hour: 'numeric', minute: '2-digit' }) : '—';
   const mine = myTeams.has(f.h) || myTeams.has(f.a);
   return `<div class="card tap" style="margin-bottom:8px;${mine ? 'border-color:rgba(52,211,153,.3)' : ''}" onclick="openMatchC(${f.id},${f.ev})"><div class="fx-card"><div class="tm">${crest(tShort(f.h), 38)}${tName(f.h)}</div><div class="mid">${f.started ? `<div>${scoreHTML(f.hs, f.as)}</div>` : ''}<span class="${f.started && !f.fin ? 'livebadge' : 'mut'}" style="font-size:11.5px">${st}</span></div><div class="tm">${crest(tShort(f.a), 38)}${tName(f.a)}</div></div></div>`;
 }
@@ -124,7 +124,7 @@ function mcBody(f, ev) {
   const st = (k) => f.stats.find((x) => x.identifier === k) || { h: [], a: [] };
   const KH = KITS[tShort(f.h)]?.b || '#334155', KA = KITS[tShort(f.a)]?.b || '#334155';
   const L = mcLive[ev], live = f.started && !f.fin;
-  const status = !f.started ? `<span class="mc-ko">${f.ko ? new Date(f.ko).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'VS'}</span>` : live ? `<span class="mc-live"><i></i>${f.min || 0}′</span>` : `<span class="mc-ft">${tt('انتهت', 'Full time')}</span>`;
+  const status = !f.started ? `<span class="mc-ko">${f.ko ? new Date(f.ko).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'VS'}</span>` : live ? `<span class="mc-live${isHT(f) ? ' ht' : ''}"><i></i>${fxMin(f)}</span>` : `<span class="mc-ft">${tt('انتهت', 'Full time')}</span>`;
   const board = `<div class="mc-board" style="--kh:${KH};--ka:${KA}">
     <div class="mc-team">${crest(tShort(f.h), 58)}<b>${tName(f.h)}</b>${f.hd ? `<span class="rate f${f.hd}">${tt('صعوبة', 'FDR')} ${f.hd}</span>` : ''}</div>
     <div class="mc-mid">${f.started ? scoreHTML(f.hs, f.as, 'mc-score') : ''}${status}</div>

@@ -62,7 +62,7 @@ export async function loadGame(fresh = false) {
   const cur = events.find((e) => e.cur), nxt = events.find((e) => e.next);
   const fx = {}, fxList = [];
   f.forEach((x) => {
-    const o = { id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: x.finished || x.finished_provisional, started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] };
+    const o = { id: x.id, ev: x.event, h: x.team_h, a: x.team_a, hd: x.team_h_difficulty, ad: x.team_a_difficulty, ko: x.kickoff_time, fin: !!(x.finished || (x.finished_provisional && (x.minutes || 0) >= 90)), started: x.started, hs: x.team_h_score, as: x.team_a_score, min: x.minutes, stats: x.stats || [] };
     fxList.push(o); if (x.event) (fx[x.event] = fx[x.event] || []).push(o);
   });
   return {

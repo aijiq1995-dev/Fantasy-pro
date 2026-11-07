@@ -104,6 +104,13 @@ export function gauge(v, label, col = '#34D399') { const C = 2 * Math.PI * 30; r
 export function ring(v, sub = '') { const C = 2 * Math.PI * 62, col = v >= 65 ? '#34D399' : v >= 50 ? '#F59E0B' : '#EF4444'; return `<div class="ring"><svg width="150" height="150"><circle cx="75" cy="75" r="62" stroke="rgba(255,255,255,.08)" stroke-width="13" fill="none"/><circle cx="75" cy="75" r="62" stroke="${col}" stroke-width="13" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - v / 100)}"/></svg><div class="c"><div><b>${v}</b><div class="mut" style="font-size:12px">${sub}</div></div></div></div>`; }
 export const timeAgo = (ts) => { const s = Math.round((Date.now() - ts) / 1000); if (s < 60) return tt('الآن', 'now'); if (s < 3600) return tt(`قبل ${Math.round(s / 60)} د`, `${Math.round(s / 60)}m ago`); if (s < 86400) return tt(`قبل ${Math.round(s / 3600)} س`, `${Math.round(s / 3600)}h ago`); return new Date(ts).toLocaleDateString(lang() === 'en' ? 'en-GB' : 'ar-IQ'); };
 /** النتيجة: كل رقم بصندوق مستقل حتى يبقى جنب فريقه (الكتابة العربية تقلب «2 - 0» إذا انكتبت كنص واحد) */
+/* دقيقة المباراة كما يعرضها الفانتازي، مع "نهاية الشوط الأول" وقت الاستراحة */
+const koAgo = (f) => (f.ko ? (Date.now() - new Date(f.ko)) / 60e3 : 0);
+export const isHT = (f) => !!(f?.started && !f.fin && (f.min || 0) === 45 && koAgo(f) >= 49 && koAgo(f) <= 70);
+export const fxMin = (f, short = false) => {
+  if (isHT(f)) return short ? tt('استراحة', 'HT') : tt('نهاية الشوط الأول', 'Half time');
+  const m = f?.min || 0; return `${m}${m === 45 || m >= 90 ? '+' : ''}′`;
+};
 export const scoreHTML = (h, a, cls = 'score', style = '') => `<span class="${cls} sc2" style="${style}"><span>${h ?? 0}</span><i>–</i><span>${a ?? 0}</span></span>`;
 export const fmtTime = (iso) => { if (!iso) return '—'; const d = new Date(iso); return d.toLocaleString(lang() === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); };
 

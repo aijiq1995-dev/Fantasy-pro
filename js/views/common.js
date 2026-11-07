@@ -1,7 +1,7 @@
 /* مكونات مشتركة بين الأقسام */
 import { ST, tShort, tName, PM, savePlan } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, shirt, crest, posTag, fdr, spark, toast, openSheet, closeSheet, sheetHead, fmt, r1, RATE_TXT, LS, scoreHTML } from '../ui.js';
+import { esc, I, shirt, crest, posTag, fdr, spark, toast, openSheet, closeSheet, sheetHead, fmt, r1, RATE_TXT, LS, scoreHTML, fxMin } from '../ui.js';
 import { xp, xpN, fixturesFor, avail, avgFdr, canBuy } from '../engine.js';
 import * as FPL from '../fpl.js';
 import * as AU from '../auth.js';
@@ -131,7 +131,7 @@ window.playerGW = async (id, gw, mult = 1) => {
   const { provisionalBonus } = await import('../live-engine.js');
   const pb = s.bonus ? 0 : (provisionalBonus(gw)[id] || 0);
   const total = (s.total_points || 0) + pb, shown = total * Math.max(1, mult);
-  const match = (f) => { const home = f.h === p.team, opp = home ? f.a : f.h; const st = f.fin ? tt('انتهت', 'FT') : f.started ? `<span class="livebadge">${f.min || ''}′</span>` : (f.ko ? new Date(f.ko).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
+  const match = (f) => { const home = f.h === p.team, opp = home ? f.a : f.h; const st = f.fin ? tt('انتهت', 'FT') : f.started ? `<span class="livebadge">${fxMin(f)}</span>` : (f.ko ? new Date(f.ko).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
     return `<div class="pgw-match" onclick="closeSheet();setTimeout(()=>openMatchC&&openMatchC(${f.id},${gw}),200)"><div class="flex" style="gap:6px">${crest(tShort(f.h), 26)}<b>${tShort(f.h)}</b></div><div style="text-align:center">${f.started ? `${scoreHTML(f.hs, f.as, 'score', 'font-size:20px;font-weight:700')}` : '<b class="mut">VS</b>'}<div style="font-size:11.5px" class="mut">${st}</div></div><div class="flex" style="gap:6px;justify-content:flex-end"><b>${tShort(f.a)}</b>${crest(tShort(f.a), 26)}</div></div>`; };
   const rows = []; (el?.explain || []).forEach((x) => (x.stats || []).forEach((r) => { if (r.identifier === 'bps') return; const ex = rows.find((y) => y.k === r.identifier); if (ex) { ex.v += r.value; ex.p += r.points; } else rows.push({ k: r.identifier, v: r.value, p: r.points }); }));
   if (!rows.length && (s.minutes || 0) > 0) Object.keys(EXPL()).forEach((k) => { if (k !== 'bonus' && +s[k]) rows.push({ k, v: s[k], p: null }); });

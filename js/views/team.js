@@ -1,7 +1,7 @@
 /* فريقي: ملخص احترافي + ملعب تفاعلي + أدوات (تشكيل، أوراق، تحليل الفريق) */
 import { ST, PM, tShort, savePlan } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, toast, fmt, r1, LS, crest, fmtTime } from '../ui.js';
+import { esc, I, toast, fmt, r1, LS, crest, fmtTime, fxMin } from '../ui.js';
 import { xp, xpN, validXI, formation, bestXI, bestXIFormation, projected, hits, avail, fixturesFor, analyze, avgFdr } from '../engine.js';
 import { pShirt } from './common.js';
 import { pricePredict, liveRankEstimate } from '../predict.js';
@@ -101,7 +101,7 @@ function ensureLive() {
 function pState(p, gw) {
   const f = (ST.G.fx[gw] || []).filter((x) => x.h === p.team || x.a === p.team);
   if (!f.length) return ['blank', tt('ما يلعب', 'No match')];
-  if (f.some((x) => x.started && !x.fin)) return ['live', `${Math.max(...f.filter((x) => x.started && !x.fin).map((x) => x.min || 0))}′`];
+  { const lv = f.filter((x) => x.started && !x.fin); if (lv.length) { const g = lv.reduce((a, x) => ((x.min || 0) > (a.min || 0) ? x : a)); return ['live', fxMin(g, true)]; } }
   if (f.every((x) => x.fin)) return ['done', tt('انتهت', 'FT')];
   const k = f.find((x) => !x.started)?.ko; return ['soon', k ? new Date(k).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : 'ar-IQ', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : tt('لاحقاً', 'Later')];
 }

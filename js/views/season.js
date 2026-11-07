@@ -1,7 +1,7 @@
 /* الجولات: كل جولة من 1 لحد 38 + مصفوفة صعوبة المباريات */
 import { ST, PM, tShort, tName } from '../store.js';
 import { t, tt } from '../i18n.js';
-import { esc, I, fmt, crest, fmtTime, scoreHTML } from '../ui.js';
+import { esc, I, fmt, crest, fmtTime, scoreHTML, fxMin } from '../ui.js';
 import * as FPL from '../fpl.js';
 import { xp, projected, fixturesFor, avgFdr, dgwBgw } from '../engine.js';
 import { pShirt, playerSummary } from './common.js';
@@ -58,7 +58,7 @@ function fixtures(g) {
   const mine = new Set((ST.plan?.squad || []).map((id) => PM(id)?.team));
   let day = '';
   return `<div class="list">${fx.map((f) => { const d = f.ko ? new Date(f.ko).toLocaleDateString(document.dir === 'ltr' ? 'en-GB' : 'ar-IQ', { weekday: 'long', day: 'numeric', month: 'long' }) : tt('موعد غير محدد', 'TBC'); const hd = d !== day ? `<div class="mut" style="font-size:12px;padding:10px 12px 4px;background:var(--bg2)">${(day = d)}</div>` : '';
-    return hd + `<div class="row tap" onclick="${window.openMatchC ? `openMatchC(${f.id},${f.ev})` : `go('live')`}"><div class="flex" style="flex:1;justify-content:flex-end;gap:8px;min-width:0"><b style="font-size:13.5px;${mine.has(f.h) ? 'color:var(--acc)' : ''}">${tName(f.h)}</b>${crest(tShort(f.h), 26)}</div><div style="min-width:64px;text-align:center">${f.started ? `${scoreHTML(f.hs, f.as, 'score', 'font-size:17px')}${f.fin ? '' : '<div class="livebadge" style="font-size:10px">' + f.min + "'</div>"}` : `<span class="num mut" style="font-size:13px">${f.ko ? new Date(f.ko).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'}</span>`}</div><div class="flex" style="flex:1;gap:8px;min-width:0">${crest(tShort(f.a), 26)}<b style="font-size:13.5px;${mine.has(f.a) ? 'color:var(--acc)' : ''}">${tName(f.a)}</b></div></div>`; }).join('')}</div>`;
+    return hd + `<div class="row tap" onclick="${window.openMatchC ? `openMatchC(${f.id},${f.ev})` : `go('live')`}"><div class="flex" style="flex:1;justify-content:flex-end;gap:8px;min-width:0"><b style="font-size:13.5px;${mine.has(f.h) ? 'color:var(--acc)' : ''}">${tName(f.h)}</b>${crest(tShort(f.h), 26)}</div><div style="min-width:64px;text-align:center">${f.started ? `${scoreHTML(f.hs, f.as, 'score', 'font-size:17px')}${f.fin ? '' : '<div class="livebadge" style="font-size:10px">' + fxMin(f, true) + '</div>'}` : `<span class="num mut" style="font-size:13px">${f.ko ? new Date(f.ko).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'}</span>`}</div><div class="flex" style="flex:1;gap:8px;min-width:0">${crest(tShort(f.a), 26)}<b style="font-size:13.5px;${mine.has(f.a) ? 'color:var(--acc)' : ''}">${tName(f.a)}</b></div></div>`; }).join('')}</div>`;
 }
 function futureGW(g, d) {
   const G = ST.G, ev = G.events.find((e) => e.id === g), P = ST.plan;
