@@ -1,0 +1,9 @@
+name: probe
+on: { push: { paths: ['.github/workflows/probe.yml'] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sleep 60; curl -s "https://fantasy-pro-aijo0.vercel.app/api/lineups?ko=2026-11-07T12:30:00Z&h=LEE&a=TOT" | head -c 400; echo
+          curl -s "https://fantasy-pro-aijo0.vercel.app/api/lineups?ko=2026-11-07T15:00:00Z&h=ARS&a=HUL" | head -c 200
